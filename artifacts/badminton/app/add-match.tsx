@@ -65,6 +65,8 @@ export default function AddMatchScreen() {
     }
   };
 
+  const MAX_SCORE = 30;
+
   const isValid = () => {
     const s1 = parseInt(team1Score);
     const s2 = parseInt(team2Score);
@@ -72,6 +74,7 @@ export default function AddMatchScreen() {
     if (isNaN(s1) || isNaN(s2)) return false;
     if (s1 === s2) return false;
     if (s1 < 0 || s2 < 0) return false;
+    if (s1 > MAX_SCORE || s2 > MAX_SCORE) return false;
     return true;
   };
 
@@ -187,7 +190,10 @@ export default function AddMatchScreen() {
               </View>
               <TextInput
                 value={team1Score}
-                onChangeText={setTeam1Score}
+                onChangeText={(v) => {
+                  const n = parseInt(v);
+                  if (v === "" || (isNaN(n) === false && n <= MAX_SCORE)) setTeam1Score(v);
+                }}
                 keyboardType="number-pad"
                 placeholder="0"
                 placeholderTextColor={colors.textMuted}
@@ -214,7 +220,10 @@ export default function AddMatchScreen() {
               </View>
               <TextInput
                 value={team2Score}
-                onChangeText={setTeam2Score}
+                onChangeText={(v) => {
+                  const n = parseInt(v);
+                  if (v === "" || (isNaN(n) === false && n <= MAX_SCORE)) setTeam2Score(v);
+                }}
                 keyboardType="number-pad"
                 placeholder="0"
                 placeholderTextColor={colors.textMuted}
@@ -225,6 +234,9 @@ export default function AddMatchScreen() {
           </View>
           {team1Score && team2Score && team1Score === team2Score && (
             <Text style={[styles.tieWarning, { color: colors.warning }]}>Scores cannot be tied</Text>
+          )}
+          {((team1Score && parseInt(team1Score) > MAX_SCORE) || (team2Score && parseInt(team2Score) > MAX_SCORE)) && (
+            <Text style={[styles.tieWarning, { color: colors.danger }]}>Maximum score is {MAX_SCORE}</Text>
           )}
         </View>
 

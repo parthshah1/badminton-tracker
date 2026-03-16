@@ -70,6 +70,24 @@ router.post("/matches", async (req, res) => {
       return;
     }
 
+    const MAX_SCORE = 30;
+    if (typeof team1Score !== "number" || typeof team2Score !== "number") {
+      res.status(400).json({ error: "Scores must be numbers" });
+      return;
+    }
+    if (team1Score < 0 || team2Score < 0) {
+      res.status(400).json({ error: "Scores cannot be negative" });
+      return;
+    }
+    if (team1Score > MAX_SCORE || team2Score > MAX_SCORE) {
+      res.status(400).json({ error: `Scores cannot exceed ${MAX_SCORE}` });
+      return;
+    }
+    if (team1Score === team2Score) {
+      res.status(400).json({ error: "Scores cannot be tied" });
+      return;
+    }
+
     const winnerTeam = team1Score > team2Score ? 1 : 2;
 
     const [match] = await db.insert(matchesTable).values({
