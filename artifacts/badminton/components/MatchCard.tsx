@@ -1,6 +1,6 @@
-import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View, useColorScheme } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
 import { PlayerAvatar } from "./PlayerAvatar";
 
@@ -18,7 +18,18 @@ interface MatchCardProps {
   winnerTeam: number;
   players: MatchPlayer[];
   playedAt: string;
+  notes?: string;
   compact?: boolean;
+}
+
+function formatDate(dateStr: string) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export function MatchCard({
@@ -28,6 +39,7 @@ export function MatchCard({
   winnerTeam,
   players,
   playedAt,
+  notes,
   compact = false,
 }: MatchCardProps) {
   const colorScheme = useColorScheme();
@@ -36,177 +48,249 @@ export function MatchCard({
 
   const team1Players = players.filter(p => p.team === 1);
   const team2Players = players.filter(p => p.team === 2);
+  const team1Won = winnerTeam === 1;
+  const team2Won = winnerTeam === 2;
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
+  const avatarSize = compact ? 26 : 32;
 
-  const avatarSize = compact ? 28 : 34;
+  function TeamRow({
+    teamPlayers,
+    score,
+    won,
+    isTop,
+  }: {
+    teamPlayers: MatchPlayer[];
+    score: number;
+    won: boolean;
+    isTop: boolean;
+  }) {
+    const names = teamPlayers.map(p => p.playerName.split(" ")[0]).join(" & ");
+    return (
+      <View
+        style={[
+          styles.teamRow,
+          won && styles.teamRowWinner,
+          won && { backgroundColor: colors.tint + "12" },
+          isTop ? styles.teamRowTop : styles.teamRowBottom,
+        ]}
+      >
+        <View style={styles.teamLeft}>
+          <View style={styles.avatarStack}>
+            {teamPlayers.map((p, i) => (
+              <View
+                key={p.playerId}
+                style={[
+                  styles.avatarWrap,
+                  { marginLeft: i > 0 ? -10 : 0 },
+                  { borderColor: isDark ? colors.card : "#fff" },
+                ]}
+              >
+                <PlayerAvatar
+                  name={p.playerName}
+                  color={p.avatarColor}
+                  size={avatarSize}
+                  fontSize={compact ? 10 : 12}
+                />
+              </View>
+            ))}
+          </View>
+          {!compact && (
+            <Text
+              style={[
+                styles.teamName,
+                { color: won ? colors.text : colors.textSecondary },
+                won && styles.teamNameWinner,
+              ]}
+              numberOfLines={1}
+            >
+              {names}
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.teamRight}>
+          <Text
+            style={[
+              styles.score,
+              { color: won ? colors.tint : colors.textMuted },
+              won && styles.scoreWinner,
+            ]}
+          >
+            {score}
+          </Text>
+          {won ? (
+            <View style={[styles.winBadge, { backgroundColor: colors.tint }]}>
+              <Text style={styles.winBadgeText}>W</Text>
+            </View>
+          ) : (
+            <View style={[styles.lossBadge, { backgroundColor: colors.backgroundSecondary }]}>
+              <Text style={[styles.lossBadgeText, { color: colors.textMuted }]}>L</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.header}>
-        <View style={[styles.typeBadge, { backgroundColor: colors.backgroundSecondary }]}>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          shadowColor: isDark ? "#000" : "#94A3B8",
+        },
+      ]}
+    >
+      <View style={styles.cardHeader}>
+        <View style={[styles.typePill, { backgroundColor: colors.backgroundSecondary }]}>
           <Text style={[styles.typeText, { color: colors.textSecondary }]}>
-            {matchType === "singles" ? "1v1" : "2v2"}
+            {matchType === "singles" ? "SINGLES" : "DOUBLES"}
           </Text>
         </View>
-        <Text style={[styles.date, { color: colors.textMuted }]}>{formatDate(playedAt)}</Text>
+        <Text style={[styles.dateText, { color: colors.textMuted }]}>{formatDate(playedAt)}</Text>
       </View>
 
-      <View style={styles.matchRow}>
-        <View style={[styles.teamSide, styles.teamLeft]}>
-          <View style={styles.avatarRow}>
-            {team1Players.map((p, i) => (
-              <View key={p.playerId} style={[styles.avatarWrap, { marginLeft: i > 0 ? -8 : 0 }]}>
-                <PlayerAvatar name={p.playerName} color={p.avatarColor} size={avatarSize} fontSize={12} />
-              </View>
-            ))}
-          </View>
-          {!compact && (
-            <Text style={[styles.teamName, { color: colors.text }]} numberOfLines={1}>
-              {team1Players.map(p => p.playerName.split(" ")[0]).join(" & ")}
-            </Text>
-          )}
-        </View>
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-        <View style={styles.scoreBlock}>
-          <View style={styles.scoreRow}>
-            <Text
-              style={[
-                styles.score,
-                { color: winnerTeam === 1 ? colors.tint : colors.textMuted },
-              ]}
-            >
-              {team1Score}
-            </Text>
-            <Text style={[styles.scoreSep, { color: colors.textMuted }]}>–</Text>
-            <Text
-              style={[
-                styles.score,
-                { color: winnerTeam === 2 ? colors.tint : colors.textMuted },
-              ]}
-            >
-              {team2Score}
-            </Text>
-          </View>
-          {winnerTeam === 1 && (
-            <View style={styles.winIndicatorLeft}>
-              <Feather name="chevron-left" size={12} color={colors.tint} />
-            </View>
-          )}
-          {winnerTeam === 2 && (
-            <View style={styles.winIndicatorRight}>
-              <Feather name="chevron-right" size={12} color={colors.tint} />
-            </View>
-          )}
-        </View>
-
-        <View style={[styles.teamSide, styles.teamRight]}>
-          <View style={styles.avatarRow}>
-            {team2Players.map((p, i) => (
-              <View key={p.playerId} style={[styles.avatarWrap, { marginLeft: i > 0 ? -8 : 0 }]}>
-                <PlayerAvatar name={p.playerName} color={p.avatarColor} size={avatarSize} fontSize={12} />
-              </View>
-            ))}
-          </View>
-          {!compact && (
-            <Text style={[styles.teamName, { color: colors.text }]} numberOfLines={1}>
-              {team2Players.map(p => p.playerName.split(" ")[0]).join(" & ")}
-            </Text>
-          )}
-        </View>
+      <View style={styles.teamsContainer}>
+        <TeamRow teamPlayers={team1Players} score={team1Score} won={team1Won} isTop />
+        <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+        <TeamRow teamPlayers={team2Players} score={team2Score} won={team2Won} isTop={false} />
       </View>
+
+      {notes && !compact && (
+        <View style={[styles.notesRow, { borderTopColor: colors.border }]}>
+          <Feather name="message-circle" size={12} color={colors.textMuted} />
+          <Text style={[styles.notesText, { color: colors.textMuted }]} numberOfLines={1}>
+            {notes}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 20,
     borderWidth: 1,
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  header: {
+  cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  typeBadge: {
+  typePill: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   typeText: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.8,
   },
-  date: {
+  dateText: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
   },
-  matchRow: {
+  divider: {
+    height: 1,
+  },
+  teamsContainer: {},
+  teamRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  teamSide: {
-    flex: 1,
-    gap: 6,
+  teamRowWinner: {},
+  teamRowTop: { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
+  teamRowBottom: {},
+  rowDivider: {
+    height: 1,
+    marginHorizontal: 16,
   },
   teamLeft: {
-    alignItems: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
   },
-  teamRight: {
-    alignItems: "flex-end",
-  },
-  avatarRow: {
+  avatarStack: {
     flexDirection: "row",
   },
   avatarWrap: {
     borderWidth: 2,
-    borderColor: "transparent",
     borderRadius: 20,
   },
   teamName: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: "Inter_500Medium",
-    maxWidth: 120,
+    flex: 1,
   },
-  scoreBlock: {
+  teamNameWinner: {
+    fontFamily: "Inter_700Bold",
+  },
+  teamRight: {
+    flexDirection: "row",
     alignItems: "center",
-    minWidth: 80,
+    gap: 8,
   },
-  scoreRow: {
+  score: {
+    fontSize: 26,
+    fontFamily: "Inter_700Bold",
+    lineHeight: 30,
+    minWidth: 32,
+    textAlign: "right",
+  },
+  scoreWinner: {
+    fontSize: 30,
+  },
+  winBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  winBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+  },
+  lossBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  lossBadgeText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  notesRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderTopWidth: 1,
   },
-  score: {
-    fontSize: 28,
-    fontFamily: "Inter_700Bold",
-    lineHeight: 34,
-  },
-  scoreSep: {
-    fontSize: 20,
+  notesText: {
+    fontSize: 12,
     fontFamily: "Inter_400Regular",
-  },
-  winIndicatorLeft: {
-    position: "absolute",
-    left: -12,
-    top: "50%",
-  },
-  winIndicatorRight: {
-    position: "absolute",
-    right: -12,
-    top: "50%",
+    flex: 1,
   },
 });
