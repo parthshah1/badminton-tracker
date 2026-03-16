@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import React from "react";
 import {
@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
-import { MatchCard } from "@/components/MatchCard";
+import { SwipeableMatchCard } from "@/components/SwipeableMatchCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 
 const BASE = process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "";
@@ -37,12 +37,20 @@ export default function HomeScreen() {
   const colors = isDark ? Colors.dark : Colors.light;
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const queryClient = useQueryClient();
 
   const matchesQuery = useQuery({ queryKey: ["matches"], queryFn: fetchMatches });
   const leaderboardQuery = useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard });
 
   const topPlayer = leaderboardQuery.data?.[0];
   const recentMatches = matchesQuery.data?.slice(0, 5) ?? [];
+
+  const handleDeleteMatch = async (id: number) => {
+    await fetch(`${BASE}/api/matches/${id}`, { method: "DELETE" });
+    queryClient.invalidateQueries({ queryKey: ["matches"] });
+    queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+    queryClient.invalidateQueries({ queryKey: ["playerStats"] });
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -136,7 +144,12 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.matchList}>
               {recentMatches.map(match => (
-                <MatchCard key={match.id} {...match} />
+                <SwipeableMatchCard
+                  key={match.id}
+                  match={match}
+                  colors={colors}
+                  onDelete={handleDeleteMatch}
+                />
               ))}
             </View>
           )}

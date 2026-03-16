@@ -59,6 +59,45 @@ router.get("/players/:id", async (req, res) => {
   }
 });
 
+router.patch("/players/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { name, avatarColor } = req.body;
+    const updates: Record<string, string> = {};
+    if (name && typeof name === "string") updates.name = name.trim();
+    if (avatarColor && typeof avatarColor === "string") updates.avatarColor = avatarColor;
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "No valid fields to update" });
+      return;
+    }
+    const [player] = await db.update(playersTable).set(updates).where(eq(playersTable.id, id)).returning();
+    if (!player) {
+      res.status(404).json({ error: "Player not found" });
+      return;
+    }
+    res.json({
+      id: player.id,
+      name: player.name,
+      avatarColor: player.avatarColor,
+      createdAt: player.createdAt.toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update player" });
+  }
+});
+
+router.delete("/players/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    // Remove match participations first (cascade should handle, but be explicit)
+    await db.delete(matchPlayersTable).where(eq(matchPlayersTable.playerId, id));
+    await db.delete(playersTable).where(eq(playersTable.id, id));
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete player" });
+  }
+});
+
 router.get("/players/:id/stats", async (req, res) => {
   try {
     const playerId = parseInt(req.params.id);
