@@ -259,7 +259,7 @@ export default function PlayerDetailScreen() {
             <Text style={[styles.modalTitle, { color: colors.text }]}>Edit Player</Text>
             <Pressable
               onPress={handleSaveEdit}
-              disabled={!editName.trim() || editLoading}
+              disabled={editName.trim().length < 2 || editLoading}
               style={({ pressed }) => ({ opacity: pressed || !editName.trim() ? 0.4 : 1 })}
             >
               {editLoading ? (
@@ -283,7 +283,12 @@ export default function PlayerDetailScreen() {
             </View>
 
             <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name</Text>
+              <View style={styles.labelRow}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name</Text>
+                <Text style={[styles.charCount, { color: editName.length > 25 ? colors.danger : colors.textMuted }]}>
+                  {editName.length}/30
+                </Text>
+              </View>
               <TextInput
                 value={editName}
                 onChangeText={setEditName}
@@ -291,13 +296,20 @@ export default function PlayerDetailScreen() {
                 placeholderTextColor={colors.textMuted}
                 style={[
                   styles.input,
-                  { backgroundColor: colors.card, color: colors.text, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.card,
+                    color: colors.text,
+                    borderColor: editName.trim().length > 0 && editName.trim().length < 2 ? colors.danger : colors.border,
+                  },
                 ]}
                 autoFocus
                 maxLength={30}
                 returnKeyType="done"
                 onSubmitEditing={handleSaveEdit}
               />
+              {editName.trim().length > 0 && editName.trim().length < 2 && (
+                <Text style={[styles.hint, { color: colors.danger }]}>At least 2 characters required</Text>
+              )}
             </View>
 
             <View style={styles.field}>
@@ -463,6 +475,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   matchList: { gap: 10 },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  charCount: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+  hint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
+  },
   // Modal
   modalContainer: { flex: 1 },
   modalHeader: {

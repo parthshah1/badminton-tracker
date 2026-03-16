@@ -98,7 +98,12 @@ export default function AddPlayerScreen() {
 
         {/* Name input */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Name</Text>
+          <View style={styles.labelRow}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Name</Text>
+            <Text style={[styles.charCount, { color: name.length > 25 ? colors.danger : colors.textMuted }]}>
+              {name.length}/30
+            </Text>
+          </View>
           <TextInput
             value={name}
             onChangeText={setName}
@@ -109,7 +114,7 @@ export default function AddPlayerScreen() {
               {
                 backgroundColor: colors.card,
                 color: colors.text,
-                borderColor: colors.border,
+                borderColor: name.trim().length > 0 && name.trim().length < 2 ? colors.danger : colors.border,
               },
             ]}
             autoFocus
@@ -117,6 +122,9 @@ export default function AddPlayerScreen() {
             returnKeyType="done"
             onSubmitEditing={handleCreate}
           />
+          {name.trim().length > 0 && name.trim().length < 2 && (
+            <Text style={[styles.hint, { color: colors.danger }]}>At least 2 characters required</Text>
+          )}
         </View>
 
         {/* Color picker */}
@@ -216,5 +224,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
+  },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  charCount: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+  hint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
   },
 });

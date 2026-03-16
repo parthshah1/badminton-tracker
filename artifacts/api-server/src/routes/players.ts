@@ -25,8 +25,25 @@ router.post("/players", async (req, res) => {
       res.status(400).json({ error: "Name is required" });
       return;
     }
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      res.status(400).json({ error: "Name must be at least 2 characters" });
+      return;
+    }
+    if (trimmed.length > 30) {
+      res.status(400).json({ error: "Name must be 30 characters or fewer" });
+      return;
+    }
+    const existing = await db
+      .select()
+      .from(playersTable)
+      .where(sql`lower(${playersTable.name}) = lower(${trimmed})`);
+    if (existing.length > 0) {
+      res.status(409).json({ error: "A player with that name already exists" });
+      return;
+    }
     const [player] = await db.insert(playersTable).values({
-      name: name.trim(),
+      name: trimmed,
       avatarColor: avatarColor || "#3B82F6",
     }).returning();
     res.status(201).json({
@@ -62,9 +79,36 @@ router.get("/players/:id", async (req, res) => {
 router.patch("/players/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid player ID" });
+      return;
+    }
     const { name, avatarColor } = req.body;
     const updates: Record<string, string> = {};
-    if (name && typeof name === "string") updates.name = name.trim();
+    if (name !== undefined) {
+      if (typeof name !== "string") {
+        res.status(400).json({ error: "Name must be a string" });
+        return;
+      }
+      const trimmed = name.trim();
+      if (trimmed.length < 2) {
+        res.status(400).json({ error: "Name must be at least 2 characters" });
+        return;
+      }
+      if (trimmed.length > 30) {
+        res.status(400).json({ error: "Name must be 30 characters or fewer" });
+        return;
+      }
+      const existing = await db
+        .select()
+        .from(playersTable)
+        .where(sql`lower(${playersTable.name}) = lower(${trimmed}) and ${playersTable.id} != ${id}`);
+      if (existing.length > 0) {
+        res.status(409).json({ error: "A player with that name already exists" });
+        return;
+      }
+      updates.name = trimmed;
+    }
     if (avatarColor && typeof avatarColor === "string") updates.avatarColor = avatarColor;
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "No valid fields to update" });

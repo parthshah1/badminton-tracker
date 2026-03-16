@@ -323,10 +323,15 @@ export default function AddMatchScreen() {
 
         {/* Notes */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Notes (optional)</Text>
+          <View style={styles.labelRow}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Notes (optional)</Text>
+            <Text style={[styles.charCount, { color: notes.length > 180 ? colors.danger : colors.textMuted }]}>
+              {notes.length}/200
+            </Text>
+          </View>
           <TextInput
             value={notes}
-            onChangeText={setNotes}
+            onChangeText={(v) => v.length <= 200 && setNotes(v)}
             placeholder="e.g. Best match ever!"
             placeholderTextColor={colors.textMuted}
             style={[
@@ -335,6 +340,7 @@ export default function AddMatchScreen() {
             ]}
             multiline
             numberOfLines={3}
+            maxLength={200}
           />
         </View>
 
@@ -452,6 +458,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_500Medium",
     textAlign: "center",
+  },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  charCount: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
   },
   noPlayersBox: {
     borderRadius: 12,

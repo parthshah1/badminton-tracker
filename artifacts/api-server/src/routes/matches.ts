@@ -65,14 +65,48 @@ router.post("/matches", async (req, res) => {
       playedAt,
     } = req.body;
 
-    if (!matchType || !team1PlayerIds || !team2PlayerIds) {
-      res.status(400).json({ error: "Missing required fields" });
+    const VALID_MATCH_TYPES = ["singles", "doubles"];
+    if (!matchType || !VALID_MATCH_TYPES.includes(matchType)) {
+      res.status(400).json({ error: "matchType must be 'singles' or 'doubles'" });
+      return;
+    }
+
+    if (!Array.isArray(team1PlayerIds) || !Array.isArray(team2PlayerIds)) {
+      res.status(400).json({ error: "Player lists must be arrays" });
+      return;
+    }
+
+    const expectedCount = matchType === "singles" ? 1 : 2;
+    if (team1PlayerIds.length !== expectedCount || team2PlayerIds.length !== expectedCount) {
+      res.status(400).json({
+        error: `${matchType === "singles" ? "Singles" : "Doubles"} requires exactly ${expectedCount} player(s) per team`,
+      });
+      return;
+    }
+
+    const allSubmittedIds = [...team1PlayerIds, ...team2PlayerIds];
+    const uniqueIds = new Set(allSubmittedIds);
+    if (uniqueIds.size !== allSubmittedIds.length) {
+      res.status(400).json({ error: "A player cannot be on both teams" });
+      return;
+    }
+
+    const existingPlayers = await db
+      .select({ id: playersTable.id })
+      .from(playersTable)
+      .where(inArray(playersTable.id, allSubmittedIds));
+    if (existingPlayers.length !== allSubmittedIds.length) {
+      res.status(400).json({ error: "One or more player IDs do not exist" });
       return;
     }
 
     const MAX_SCORE = 30;
     if (typeof team1Score !== "number" || typeof team2Score !== "number") {
       res.status(400).json({ error: "Scores must be numbers" });
+      return;
+    }
+    if (!Number.isInteger(team1Score) || !Number.isInteger(team2Score)) {
+      res.status(400).json({ error: "Scores must be whole numbers" });
       return;
     }
     if (team1Score < 0 || team2Score < 0) {
@@ -88,15 +122,29 @@ router.post("/matches", async (req, res) => {
       return;
     }
 
+    if (notes && typeof notes === "string" && notes.length > 200) {
+      res.status(400).json({ error: "Notes must be 200 characters or fewer" });
+      return;
+    }
+
+    let parsedDate = new Date();
+    if (playedAt) {
+      parsedDate = new Date(playedAt);
+      if (isNaN(parsedDate.getTime())) {
+        res.status(400).json({ error: "Invalid date for playedAt" });
+        return;
+      }
+    }
+
     const winnerTeam = team1Score > team2Score ? 1 : 2;
 
     const [match] = await db.insert(matchesTable).values({
       matchType,
-      team1Score: parseInt(team1Score),
-      team2Score: parseInt(team2Score),
+      team1Score,
+      team2Score,
       winnerTeam,
       notes: notes || null,
-      playedAt: new Date(playedAt),
+      playedAt: parsedDate,
     }).returning();
 
     const playerInserts = [
