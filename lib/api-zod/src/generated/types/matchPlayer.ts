@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface MatchPlayer {
+  playerId: number;
+  playerName: string;
+  avatarColor: string;
+  /** 1 or 2 */
+  team: number;
 }

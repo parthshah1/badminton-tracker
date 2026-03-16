@@ -1,22 +1,24 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Badminton Tracker API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: players
+    description: Player management
+  - name: matches
+    description: Match management
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +26,179 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /players:
+    get:
+      operationId: getPlayers
+      tags: [players]
+      summary: Get all players
+      responses:
+        "200":
+          description: List of players
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Player"
+    post:
+      operationId: createPlayer
+      tags: [players]
+      summary: Create a player
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlayerRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /players/{id}:
+    get:
+      operationId: getPlayer
+      tags: [players]
+      summary: Get a player by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /players/{id}/stats:
+    get:
+      operationId: getPlayerStats
+      tags: [players]
+      summary: Get player stats
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Player stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerStats"
+
+  /matches:
+    get:
+      operationId: getMatches
+      tags: [matches]
+      summary: Get all matches
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Match"
+    post:
+      operationId: createMatch
+      tags: [matches]
+      summary: Create a match result
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMatchRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Match"
+
+  /matches/{id}:
+    get:
+      operationId: getMatch
+      tags: [matches]
+      summary: Get a match by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Match
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Match"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteMatch
+      tags: [matches]
+      summary: Delete a match
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /stats/leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [matches]
+      summary: Get overall leaderboard
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +209,200 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Player:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        avatarColor:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - avatarColor
+        - createdAt
+
+    CreatePlayerRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        avatarColor:
+          type: string
+      required:
+        - name
+        - avatarColor
+
+    PlayerStats:
+      type: object
+      properties:
+        playerId:
+          type: integer
+        playerName:
+          type: string
+        totalMatches:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        winRate:
+          type: number
+        singlesWins:
+          type: integer
+        singlesLosses:
+          type: integer
+        doublesWins:
+          type: integer
+        doublesLosses:
+          type: integer
+        currentWinStreak:
+          type: integer
+        longestWinStreak:
+          type: integer
+        recentMatches:
+          type: array
+          items:
+            $ref: "#/components/schemas/Match"
+      required:
+        - playerId
+        - playerName
+        - totalMatches
+        - wins
+        - losses
+        - winRate
+        - singlesWins
+        - singlesLosses
+        - doublesWins
+        - doublesLosses
+        - currentWinStreak
+        - longestWinStreak
+        - recentMatches
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        playerId:
+          type: integer
+        playerName:
+          type: string
+        avatarColor:
+          type: string
+        totalMatches:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        winRate:
+          type: number
+        currentWinStreak:
+          type: integer
+      required:
+        - playerId
+        - playerName
+        - avatarColor
+        - totalMatches
+        - wins
+        - losses
+        - winRate
+        - currentWinStreak
+
+    MatchPlayer:
+      type: object
+      properties:
+        playerId:
+          type: integer
+        playerName:
+          type: string
+        avatarColor:
+          type: string
+        team:
+          type: integer
+          description: 1 or 2
+      required:
+        - playerId
+        - playerName
+        - avatarColor
+        - team
+
+    Match:
+      type: object
+      properties:
+        id:
+          type: integer
+        matchType:
+          type: string
+          enum: [singles, doubles]
+        team1Score:
+          type: integer
+        team2Score:
+          type: integer
+        winnerTeam:
+          type: integer
+          description: 1 or 2
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchPlayer"
+        notes:
+          type: string
+        playedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - matchType
+        - team1Score
+        - team2Score
+        - winnerTeam
+        - players
+        - playedAt
+        - createdAt
+
+    CreateMatchRequest:
+      type: object
+      properties:
+        matchType:
+          type: string
+          enum: [singles, doubles]
+        team1PlayerIds:
+          type: array
+          items:
+            type: integer
+        team2PlayerIds:
+          type: array
+          items:
+            type: integer
+        team1Score:
+          type: integer
+        team2Score:
+          type: integer
+        notes:
+          type: string
+        playedAt:
+          type: string
+          format: date-time
+      required:
+        - matchType
+        - team1PlayerIds
+        - team2PlayerIds
+        - team1Score
+        - team2Score
+        - playedAt
