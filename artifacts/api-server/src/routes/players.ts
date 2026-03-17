@@ -1,5 +1,5 @@
 import { db, playersTable, matchesTable, matchPlayersTable } from "@workspace/db";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, inArray } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
@@ -229,6 +229,81 @@ router.get("/players/:id/stats", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch player stats" });
+  }
+});
+
+router.get("/players/:id/h2h", async (req, res) => {
+  try {
+    const playerId = parseInt(req.params.id);
+    const [player] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
+    if (!player) {
+      res.status(404).json({ error: "Player not found" });
+      return;
+    }
+
+    const myParticipations = await db
+      .select({
+        matchId: matchPlayersTable.matchId,
+        team: matchPlayersTable.team,
+        winnerTeam: matchesTable.winnerTeam,
+        playedAt: matchesTable.playedAt,
+      })
+      .from(matchPlayersTable)
+      .innerJoin(matchesTable, eq(matchPlayersTable.matchId, matchesTable.id))
+      .where(eq(matchPlayersTable.playerId, playerId));
+
+    if (myParticipations.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    const matchIds = myParticipations.map(m => m.matchId);
+    const myMatchMap = new Map(
+      myParticipations.map(m => [m.matchId, { team: m.team, won: m.team === m.winnerTeam, playedAt: m.playedAt }])
+    );
+
+    const allParticipants = await db
+      .select()
+      .from(matchPlayersTable)
+      .where(inArray(matchPlayersTable.matchId, matchIds));
+
+    const allPlayers = await db.select().from(playersTable);
+    const playerMap = new Map(allPlayers.map(p => [p.id, p]));
+
+    const h2hMap = new Map<number, { wins: number; losses: number; lastPlayedAt: Date }>();
+
+    for (const [matchId, myInfo] of myMatchMap.entries()) {
+      const opponents = allParticipants.filter(p => p.matchId === matchId && p.playerId !== playerId && p.team !== myInfo.team);
+      for (const opp of opponents) {
+        if (!h2hMap.has(opp.playerId)) {
+          h2hMap.set(opp.playerId, { wins: 0, losses: 0, lastPlayedAt: myInfo.playedAt });
+        }
+        const record = h2hMap.get(opp.playerId)!;
+        if (myInfo.won) record.wins++;
+        else record.losses++;
+        if (myInfo.playedAt > record.lastPlayedAt) record.lastPlayedAt = myInfo.playedAt;
+      }
+    }
+
+    const result = Array.from(h2hMap.entries())
+      .map(([oppId, record]) => {
+        const opp = playerMap.get(oppId);
+        return {
+          opponentId: oppId,
+          opponentName: opp?.name ?? "Unknown",
+          opponentAvatarColor: opp?.avatarColor ?? "#3B82F6",
+          wins: record.wins,
+          losses: record.losses,
+          total: record.wins + record.losses,
+          lastPlayedAt: record.lastPlayedAt.toISOString(),
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch H2H stats" });
   }
 });
 

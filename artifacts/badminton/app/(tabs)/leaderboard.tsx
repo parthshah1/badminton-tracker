@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -26,6 +26,12 @@ async function fetchLeaderboard() {
   return res.json() as Promise<any[]>;
 }
 
+async function fetchTeams() {
+  const res = await fetch(`${BASE}/api/stats/teams`);
+  if (!res.ok) throw new Error("Failed");
+  return res.json() as Promise<any[]>;
+}
+
 const MEDALS = [
   { color: "#F59E0B", label: "Gold", bg: "#FEFCE8" },
   { color: "#94A3B8", label: "Silver", bg: "#F8FAFC" },
@@ -39,6 +45,8 @@ export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
 
+  const [activeTab, setActiveTab] = useState<"players" | "teams">("players");
+
   const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: ["leaderboard"],
     queryFn: fetchLeaderboard,
@@ -46,8 +54,18 @@ export default function LeaderboardScreen() {
     refetchIntervalInBackground: false,
   });
 
+  const teamsQuery = useQuery({
+    queryKey: ["teams"],
+    queryFn: fetchTeams,
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
+  });
+
   const players = data ?? [];
+  const teams = teamsQuery.data ?? [];
   const topPadding = isWeb ? insets.top + 67 : insets.top + 16;
+  const isTeamsLoading = teamsQuery.isLoading;
+  const handleRefresh = () => { refetch(); teamsQuery.refetch(); };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -59,8 +77,8 @@ export default function LeaderboardScreen() {
         }}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            refreshing={isRefetching || teamsQuery.isRefetching}
+            onRefresh={handleRefresh}
             tintColor={colors.tint}
             colors={[colors.tint]}
           />
@@ -69,140 +87,209 @@ export default function LeaderboardScreen() {
         {/* Page header */}
         <View style={[styles.pageHeader, { paddingTop: topPadding, backgroundColor: colors.background }]}>
           <Text style={[styles.pageTitle, { color: colors.text }]}>Leaderboard</Text>
-          {players.length > 0 && (
-            <View style={[styles.totalBadge, { backgroundColor: colors.backgroundSecondary }]}>
-              <Text style={[styles.totalBadgeText, { color: colors.textSecondary }]}>
-                {players.length} players
-              </Text>
-            </View>
-          )}
         </View>
 
-        {isLoading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator color={colors.tint} size="large" />
-          </View>
-        ) : players.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.emptyIconWrap, { backgroundColor: colors.tint + "15" }]}>
-                <Feather name="award" size={28} color={colors.tint} />
-              </View>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No rankings yet</Text>
-              <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
-                Add players and log matches to build the leaderboard
+        {/* Tab switcher */}
+        <View style={[styles.tabSwitcher, { backgroundColor: colors.backgroundSecondary, marginHorizontal: 20, marginBottom: 4 }]}>
+          {(["players", "teams"] as const).map(tab => (
+            <Pressable
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              style={[
+                styles.tabSwitcherBtn,
+                activeTab === tab && { backgroundColor: colors.card, shadowColor: isDark ? "#000" : "#94A3B8", shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+              ]}
+            >
+              <Text style={[styles.tabSwitcherText, { color: activeTab === tab ? colors.text : colors.textMuted }]}>
+                {tab === "players" ? "Players" : "Teams"}
               </Text>
-            </View>
-          </View>
-        ) : (
-          <>
-            {/* Podium */}
-            {players.length >= 2 && (
-              <View style={styles.podiumSection}>
-                <LinearGradient
-                  colors={isDark ? ["#1E293B", "#0F172A"] : ["#F8FAFC", "#F1F5F9"]}
-                  style={[styles.podiumCard, { borderColor: colors.border }]}
-                >
-                  <Text style={[styles.podiumSeason, { color: colors.textMuted }]}>RANKINGS</Text>
-                  <View style={styles.podiumRow}>
-                    {players.length >= 2 && (
-                      <PodiumItem player={players[1]} rank={2} colors={colors} isDark={isDark} />
-                    )}
-                    <PodiumItem player={players[0]} rank={1} colors={colors} isDark={isDark} />
-                    {players.length >= 3 && (
-                      <PodiumItem player={players[2]} rank={3} colors={colors} isDark={isDark} />
-                    )}
-                  </View>
-                </LinearGradient>
-              </View>
-            )}
+            </Pressable>
+          ))}
+        </View>
 
-            {/* Full list */}
+        {activeTab === "players" ? (
+          isLoading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color={colors.tint} size="large" />
+            </View>
+          ) : players.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.emptyIconWrap, { backgroundColor: colors.tint + "15" }]}>
+                  <Feather name="award" size={28} color={colors.tint} />
+                </View>
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>No rankings yet</Text>
+                <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
+                  Add players and log matches to build the leaderboard
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <>
+              {players.length >= 2 && (
+                <View style={styles.podiumSection}>
+                  <LinearGradient
+                    colors={isDark ? ["#1E293B", "#0F172A"] : ["#F8FAFC", "#F1F5F9"]}
+                    style={[styles.podiumCard, { borderColor: colors.border }]}
+                  >
+                    <Text style={[styles.podiumSeason, { color: colors.textMuted }]}>RANKINGS</Text>
+                    <View style={styles.podiumRow}>
+                      {players.length >= 2 && (
+                        <PodiumItem player={players[1]} rank={2} colors={colors} isDark={isDark} />
+                      )}
+                      <PodiumItem player={players[0]} rank={1} colors={colors} isDark={isDark} />
+                      {players.length >= 3 && (
+                        <PodiumItem player={players[2]} rank={3} colors={colors} isDark={isDark} />
+                      )}
+                    </View>
+                  </LinearGradient>
+                </View>
+              )}
+              <View style={styles.listSection}>
+                <Text style={[styles.listTitle, { color: colors.text }]}>All Players</Text>
+                <View style={styles.rankList}>
+                  {players.map((player, idx) => {
+                    const medal = idx < 3 ? MEDALS[idx] : null;
+                    const isTop = idx === 0;
+                    return (
+                      <Pressable
+                        key={player.playerId}
+                        onPress={() => router.push({ pathname: "/player/[id]", params: { id: player.playerId } })}
+                        style={({ pressed }) => [
+                          styles.rankRow,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: isTop ? colors.tint + "40" : colors.border,
+                            shadowColor: isDark ? "#000" : "#94A3B8",
+                            opacity: pressed ? 0.82 : 1,
+                          },
+                        ]}
+                      >
+                        {isTop && <View style={[styles.topRowAccent, { backgroundColor: colors.tint }]} />}
+                        <View style={styles.rankLeft}>
+                          <View style={[styles.rankBadge, medal ? { backgroundColor: medal.bg } : { backgroundColor: colors.backgroundSecondary }]}>
+                            {medal ? (
+                              <Text style={styles.rankMedalEmoji}>{idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉"}</Text>
+                            ) : (
+                              <Text style={[styles.rankNum, { color: colors.textMuted }]}>{idx + 1}</Text>
+                            )}
+                          </View>
+                          <PlayerAvatar name={player.playerName} color={player.avatarColor} size={46} fontSize={16} />
+                          <View style={styles.rankInfo}>
+                            <View style={styles.rankNameRow}>
+                              <Text style={[styles.rankName, { color: colors.text }]}>{player.playerName}</Text>
+                              {player.currentWinStreak >= 3 && (
+                                <View style={[styles.streakPill, { backgroundColor: "#FEF3C7" }]}>
+                                  <Text style={styles.streakPillText}>🔥 {player.currentWinStreak}</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={[styles.rankMatches, { color: colors.textMuted }]}>
+                              {player.totalMatches} {player.totalMatches === 1 ? "match" : "matches"}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.rankRight}>
+                          <View style={styles.wlRow}>
+                            <View style={[styles.wPill, { backgroundColor: colors.tint + "18" }]}>
+                              <Text style={[styles.wPillText, { color: colors.tint }]}>{player.wins}W</Text>
+                            </View>
+                            <View style={[styles.lPill, { backgroundColor: colors.danger + "12" }]}>
+                              <Text style={[styles.lPillText, { color: colors.danger }]}>{player.losses}L</Text>
+                            </View>
+                          </View>
+                          <Text style={[styles.winRateLarge, { color: isTop ? colors.tint : colors.text }]}>
+                            {Math.round(player.winRate * 100)}%
+                          </Text>
+                        </View>
+                        <Feather name="chevron-right" size={16} color={colors.textMuted} />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </>
+          )
+        ) : (
+          isTeamsLoading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color={colors.tint} size="large" />
+            </View>
+          ) : teams.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.emptyIconWrap, { backgroundColor: colors.tint + "15" }]}>
+                  <Feather name="users" size={28} color={colors.tint} />
+                </View>
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>No team stats yet</Text>
+                <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
+                  Log some doubles matches to see team rankings
+                </Text>
+              </View>
+            </View>
+          ) : (
             <View style={styles.listSection}>
-              <Text style={[styles.listTitle, { color: colors.text }]}>All Players</Text>
+              <Text style={[styles.listTitle, { color: colors.text }]}>Top Teams</Text>
               <View style={styles.rankList}>
-                {players.map((player, idx) => {
+                {teams.map((team, idx) => {
                   const medal = idx < 3 ? MEDALS[idx] : null;
                   const isTop = idx === 0;
                   return (
-                    <Pressable
-                      key={player.playerId}
-                      onPress={() =>
-                        router.push({ pathname: "/player/[id]", params: { id: player.playerId } })
-                      }
-                      style={({ pressed }) => [
+                    <View
+                      key={team.key}
+                      style={[
                         styles.rankRow,
                         {
                           backgroundColor: colors.card,
                           borderColor: isTop ? colors.tint + "40" : colors.border,
                           shadowColor: isDark ? "#000" : "#94A3B8",
-                          opacity: pressed ? 0.82 : 1,
                         },
                       ]}
                     >
-                      {isTop && (
-                        <View style={[styles.topRowAccent, { backgroundColor: colors.tint }]} />
-                      )}
+                      {isTop && <View style={[styles.topRowAccent, { backgroundColor: colors.tint }]} />}
                       <View style={styles.rankLeft}>
                         <View style={[styles.rankBadge, medal ? { backgroundColor: medal.bg } : { backgroundColor: colors.backgroundSecondary }]}>
                           {medal ? (
-                            <Text style={[styles.rankMedalEmoji]}>
-                              {idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉"}
-                            </Text>
+                            <Text style={styles.rankMedalEmoji}>{idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉"}</Text>
                           ) : (
                             <Text style={[styles.rankNum, { color: colors.textMuted }]}>{idx + 1}</Text>
                           )}
                         </View>
-                        <PlayerAvatar
-                          name={player.playerName}
-                          color={player.avatarColor}
-                          size={46}
-                          fontSize={16}
-                        />
+                        <View style={styles.teamAvatarStack}>
+                          {team.players.map((p: any, pi: number) => (
+                            <View key={p.playerId} style={[styles.teamAvatarWrap, pi > 0 && { marginLeft: -10 }]}>
+                              <PlayerAvatar name={p.playerName} color={p.avatarColor} size={36} fontSize={13} />
+                            </View>
+                          ))}
+                        </View>
                         <View style={styles.rankInfo}>
-                          <View style={styles.rankNameRow}>
-                            <Text style={[styles.rankName, { color: colors.text }]}>
-                              {player.playerName}
-                            </Text>
-                            {player.currentWinStreak >= 3 && (
-                              <View style={[styles.streakPill, { backgroundColor: "#FEF3C7" }]}>
-                                <Text style={styles.streakPillText}>
-                                  🔥 {player.currentWinStreak}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
+                          <Text style={[styles.rankName, { color: colors.text }]} numberOfLines={1}>
+                            {team.players.map((p: any) => p.playerName.split(" ")[0]).join(" & ")}
+                          </Text>
                           <Text style={[styles.rankMatches, { color: colors.textMuted }]}>
-                            {player.totalMatches} {player.totalMatches === 1 ? "match" : "matches"}
+                            {team.total} {team.total === 1 ? "game" : "games"}
                           </Text>
                         </View>
                       </View>
-
                       <View style={styles.rankRight}>
                         <View style={styles.wlRow}>
                           <View style={[styles.wPill, { backgroundColor: colors.tint + "18" }]}>
-                            <Text style={[styles.wPillText, { color: colors.tint }]}>
-                              {player.wins}W
-                            </Text>
+                            <Text style={[styles.wPillText, { color: colors.tint }]}>{team.wins}W</Text>
                           </View>
                           <View style={[styles.lPill, { backgroundColor: colors.danger + "12" }]}>
-                            <Text style={[styles.lPillText, { color: colors.danger }]}>
-                              {player.losses}L
-                            </Text>
+                            <Text style={[styles.lPillText, { color: colors.danger }]}>{team.losses}L</Text>
                           </View>
                         </View>
                         <Text style={[styles.winRateLarge, { color: isTop ? colors.tint : colors.text }]}>
-                          {Math.round(player.winRate * 100)}%
+                          {Math.round(team.winRate * 100)}%
                         </Text>
                       </View>
-
-                      <Feather name="chevron-right" size={16} color={colors.textMuted} />
-                    </Pressable>
+                    </View>
                   );
                 })}
               </View>
             </View>
-          </>
+          )
         )}
       </ScrollView>
     </View>
@@ -281,6 +368,31 @@ const styles = StyleSheet.create({
   totalBadgeText: {
     fontSize: 13,
     fontFamily: "Inter_500Medium",
+  },
+  tabSwitcher: {
+    flexDirection: "row",
+    borderRadius: 12,
+    padding: 3,
+    gap: 2,
+    marginTop: 4,
+  },
+  tabSwitcherBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  tabSwitcherText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  teamAvatarStack: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  teamAvatarWrap: {
+    borderRadius: 20,
+    overflow: "hidden",
   },
   loadingBox: {
     paddingVertical: 60,

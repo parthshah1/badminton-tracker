@@ -30,6 +30,12 @@ async function fetchPlayerStats(id: string) {
   return res.json() as Promise<any>;
 }
 
+async function fetchH2H(id: string) {
+  const res = await fetch(`${BASE}/api/players/${id}/h2h`);
+  if (!res.ok) throw new Error("Failed");
+  return res.json() as Promise<any[]>;
+}
+
 export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
@@ -50,6 +56,13 @@ export default function PlayerDetailScreen() {
     queryFn: () => fetchPlayerStats(id!),
     enabled: !!id,
   });
+
+  const { data: h2hData } = useQuery({
+    queryKey: ["h2h", id],
+    queryFn: () => fetchH2H(id!),
+    enabled: !!id,
+  });
+  const h2h = h2hData ?? [];
 
   const openEdit = () => {
     setEditName(stats?.playerName ?? "");
@@ -226,6 +239,56 @@ export default function PlayerDetailScreen() {
               </View>
             </View>
           </View>
+
+          {/* Head-to-Head */}
+          {h2h.length > 0 && (
+            <View>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Head-to-Head</Text>
+              <View style={[styles.h2hCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                {h2h.map((opp: any, idx: number) => {
+                  const total = opp.wins + opp.losses;
+                  const winPct = total > 0 ? opp.wins / total : 0;
+                  const isWinning = opp.wins > opp.losses;
+                  const isTied = opp.wins === opp.losses;
+                  return (
+                    <View key={opp.opponentId}>
+                      {idx > 0 && <View style={[styles.h2hDivider, { backgroundColor: colors.border }]} />}
+                      <View style={styles.h2hRow}>
+                        <PlayerAvatar name={opp.opponentName} color={opp.opponentAvatarColor} size={38} fontSize={14} />
+                        <View style={styles.h2hInfo}>
+                          <View style={styles.h2hNameRow}>
+                            <Text style={[styles.h2hName, { color: colors.text }]}>{opp.opponentName}</Text>
+                            <View style={[
+                              styles.h2hResultPill,
+                              { backgroundColor: isWinning ? colors.tint + "18" : isTied ? colors.backgroundSecondary : colors.danger + "12" }
+                            ]}>
+                              <Text style={[
+                                styles.h2hResultText,
+                                { color: isWinning ? colors.tint : isTied ? colors.textSecondary : colors.danger }
+                              ]}>
+                                {isWinning ? "Winning" : isTied ? "Tied" : "Losing"}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.h2hBarRow}>
+                            <Text style={[styles.h2hRecord, { color: colors.textMuted }]}>
+                              {opp.wins}W – {opp.losses}L
+                            </Text>
+                            <View style={[styles.h2hBar, { backgroundColor: colors.border }]}>
+                              {total > 0 && (
+                                <View style={[styles.h2hBarFill, { width: `${winPct * 100}%`, backgroundColor: isWinning ? colors.tint : colors.danger }]} />
+                              )}
+                            </View>
+                            <Text style={[styles.h2hPct, { color: colors.textMuted }]}>{Math.round(winPct * 100)}%</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          )}
 
           {/* Recent matches */}
           {stats.recentMatches && stats.recentMatches.length > 0 && (
@@ -474,6 +537,33 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     marginBottom: 12,
   },
+  h2hCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  h2hRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  h2hDivider: { height: 1 },
+  h2hInfo: { flex: 1, gap: 6 },
+  h2hNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  h2hName: { fontSize: 15, fontFamily: "Inter_600SemiBold", flex: 1 },
+  h2hResultPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  h2hResultText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  h2hBarRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  h2hRecord: { fontSize: 12, fontFamily: "Inter_500Medium", width: 64 },
+  h2hBar: { flex: 1, height: 5, borderRadius: 3, overflow: "hidden" },
+  h2hBarFill: { height: "100%", borderRadius: 3 },
+  h2hPct: { fontSize: 12, fontFamily: "Inter_500Medium", width: 32, textAlign: "right" },
   matchList: { gap: 10 },
   labelRow: {
     flexDirection: "row",

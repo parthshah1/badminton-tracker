@@ -230,6 +230,74 @@ router.delete("/matches/:id", async (req, res) => {
   }
 });
 
+router.get("/stats/teams", async (_req, res) => {
+  try {
+    const allPlayers = await db.select().from(playersTable);
+    const playerMap = new Map(allPlayers.map(p => [p.id, p]));
+
+    const doublesMatches = await db
+      .select()
+      .from(matchesTable)
+      .where(eq(matchesTable.matchType, "doubles"));
+
+    if (doublesMatches.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    const matchIds = doublesMatches.map(m => m.id);
+    const allParticipants = await db
+      .select()
+      .from(matchPlayersTable)
+      .where(inArray(matchPlayersTable.matchId, matchIds));
+
+    const teamMap = new Map<string, { playerIds: number[]; wins: number; losses: number }>();
+
+    for (const match of doublesMatches) {
+      const participants = allParticipants.filter(p => p.matchId === match.id);
+      const t1 = participants.filter(p => p.team === "team1").map(p => p.playerId).sort((a, b) => a - b);
+      const t2 = participants.filter(p => p.team === "team2").map(p => p.playerId).sort((a, b) => a - b);
+      if (t1.length !== 2 || t2.length !== 2) continue;
+
+      const k1 = t1.join("-");
+      const k2 = t2.join("-");
+      if (!teamMap.has(k1)) teamMap.set(k1, { playerIds: t1, wins: 0, losses: 0 });
+      if (!teamMap.has(k2)) teamMap.set(k2, { playerIds: t2, wins: 0, losses: 0 });
+
+      if (match.winnerTeam === "team1") {
+        teamMap.get(k1)!.wins++;
+        teamMap.get(k2)!.losses++;
+      } else {
+        teamMap.get(k1)!.losses++;
+        teamMap.get(k2)!.wins++;
+      }
+    }
+
+    const result = Array.from(teamMap.values())
+      .map(team => {
+        const total = team.wins + team.losses;
+        return {
+          key: team.playerIds.join("-"),
+          players: team.playerIds.map(id => {
+            const p = playerMap.get(id);
+            return { playerId: id, playerName: p?.name ?? "Unknown", avatarColor: p?.avatarColor ?? "#3B82F6" };
+          }),
+          wins: team.wins,
+          losses: team.losses,
+          total,
+          winRate: total > 0 ? team.wins / total : 0,
+        };
+      })
+      .filter(t => t.total > 0)
+      .sort((a, b) => b.winRate !== a.winRate ? b.winRate - a.winRate : b.total - a.total);
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch team stats" });
+  }
+});
+
 router.get("/stats/leaderboard", async (_req, res) => {
   try {
     const allPlayers = await db.select().from(playersTable);
