@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,7 +39,7 @@ export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: ["leaderboard"],
     queryFn: fetchLeaderboard,
   });
@@ -54,6 +55,14 @@ export default function LeaderboardScreen() {
         contentContainerStyle={{
           paddingBottom: isWeb ? 34 + 84 : 100,
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={colors.tint}
+            colors={[colors.tint]}
+          />
+        }
       >
         {/* Page header */}
         <View style={[styles.pageHeader, { paddingTop: topPadding, backgroundColor: colors.background }]}>

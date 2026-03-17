@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -40,6 +41,12 @@ export default function PlayersScreen() {
   const playersQuery = useQuery({ queryKey: ["players"], queryFn: fetchPlayers });
   const leaderboardQuery = useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard });
 
+  const isRefreshing = playersQuery.isRefetching || leaderboardQuery.isRefetching;
+  const handleRefresh = () => {
+    playersQuery.refetch();
+    leaderboardQuery.refetch();
+  };
+
   const players = playersQuery.data ?? [];
   const leaderboard = leaderboardQuery.data ?? [];
   const statsMap = new Map(leaderboard.map((e: any) => [e.playerId, e]));
@@ -56,6 +63,14 @@ export default function PlayersScreen() {
           paddingHorizontal: 20,
           gap: 20,
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.tint}
+            colors={[colors.tint]}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.headerRow}>

@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -50,6 +51,12 @@ export default function HomeScreen() {
   const matchesQuery = useQuery({ queryKey: ["matches"], queryFn: fetchMatches });
   const leaderboardQuery = useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard });
 
+  const isRefreshing = matchesQuery.isRefetching || leaderboardQuery.isRefetching;
+  const handleRefresh = () => {
+    matchesQuery.refetch();
+    leaderboardQuery.refetch();
+  };
+
   const topPlayer = leaderboardQuery.data?.[0];
   const recentMatches = matchesQuery.data?.slice(0, 5) ?? [];
   const allMatches = matchesQuery.data ?? [];
@@ -81,6 +88,14 @@ export default function HomeScreen() {
         contentContainerStyle={{
           paddingBottom: isWeb ? 34 + 84 : 100,
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.tint}
+            colors={[colors.tint]}
+          />
+        }
       >
         {/* Hero Header */}
         <LinearGradient
