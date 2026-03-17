@@ -44,6 +44,33 @@ export default function AddMatchScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const todayMidnight = () => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+  const [playedAt, setPlayedAt] = useState<Date>(todayMidnight());
+
+  const dateDays = Array.from({ length: 14 }, (_, i) => {
+    const d = todayMidnight();
+    d.setDate(d.getDate() - i);
+    return d;
+  });
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  const formatChip = (d: Date) => {
+    const today = todayMidnight();
+    const yesterday = todayMidnight();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (isSameDay(d, today)) return "Today";
+    if (isSameDay(d, yesterday)) return "Yesterday";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  };
+
   const playersQuery = useQuery({ queryKey: ["players"], queryFn: fetchPlayers });
   const players = playersQuery.data ?? [];
 
@@ -93,7 +120,7 @@ export default function AddMatchScreen() {
           team1Score: parseInt(team1Score),
           team2Score: parseInt(team2Score),
           notes: notes.trim() || undefined,
-          playedAt: new Date().toISOString(),
+          playedAt: playedAt.toISOString(),
         }),
       });
       if (!res.ok) {
@@ -319,6 +346,49 @@ export default function AddMatchScreen() {
               </View>
             </View>
           )}
+        </View>
+
+        {/* Played On */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>Played On</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+          >
+            {dateDays.map((d, i) => {
+              const selected = isSameDay(d, playedAt);
+              return (
+                <Pressable
+                  key={i}
+                  onPress={() => {
+                    setPlayedAt(new Date(d));
+                    Haptics.selectionAsync();
+                  }}
+                  style={[
+                    styles.dateChip,
+                    {
+                      backgroundColor: selected ? colors.tint : colors.card,
+                      borderColor: selected ? colors.tint : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.dateChipText,
+                      { color: selected ? "#fff" : colors.text },
+                      i === 0 && !selected && { fontWeight: "600" },
+                    ]}
+                  >
+                    {formatChip(d)}
+                  </Text>
+                  {i === 0 && (
+                    <View style={[styles.dateChipDot, { backgroundColor: selected ? "rgba(255,255,255,0.7)" : colors.tint }]} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {/* Notes */}
@@ -557,6 +627,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
+  },
+  dateChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  dateChipText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  dateChipDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
   },
   submitBtn: {
     paddingVertical: 18,
