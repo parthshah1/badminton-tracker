@@ -48,8 +48,8 @@ export default function HomeScreen() {
   const isWeb = Platform.OS === "web";
   const queryClient = useQueryClient();
 
-  const matchesQuery = useQuery({ queryKey: ["matches"], queryFn: fetchMatches });
-  const leaderboardQuery = useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard });
+  const matchesQuery = useQuery({ queryKey: ["matches"], queryFn: fetchMatches, refetchInterval: 30000, refetchIntervalInBackground: false });
+  const leaderboardQuery = useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard, refetchInterval: 30000, refetchIntervalInBackground: false });
 
   const isRefreshing = matchesQuery.isRefetching || leaderboardQuery.isRefetching;
   const handleRefresh = () => {

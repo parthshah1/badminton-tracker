@@ -42,6 +42,8 @@ export default function LeaderboardScreen() {
   const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: ["leaderboard"],
     queryFn: fetchLeaderboard,
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
   });
 
   const players = data ?? [];

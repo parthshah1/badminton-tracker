@@ -38,8 +38,8 @@ export default function PlayersScreen() {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
 
-  const playersQuery = useQuery({ queryKey: ["players"], queryFn: fetchPlayers });
-  const leaderboardQuery = useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard });
+  const playersQuery = useQuery({ queryKey: ["players"], queryFn: fetchPlayers, refetchInterval: 30000, refetchIntervalInBackground: false });
+  const leaderboardQuery = useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard, refetchInterval: 30000, refetchIntervalInBackground: false });
 
   const isRefreshing = playersQuery.isRefetching || leaderboardQuery.isRefetching;
   const handleRefresh = () => {
