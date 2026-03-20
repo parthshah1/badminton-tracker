@@ -28,6 +28,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
         <Label>Players</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="rivals">
+        <Icon sf={{ default: "flame", selected: "flame.fill" }} />
+        <Label>Rivals</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -91,6 +95,14 @@ function ClassicTabLayout() {
           title: "Players",
           tabBarIcon: ({ color }) =>
             isIOS ? <SymbolView name="person.2" tintColor={color} size={24} /> : <Feather name="users" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="rivals"
+        options={{
+          title: "Rivals",
+          tabBarIcon: ({ color }) =>
+            isIOS ? <SymbolView name="flame" tintColor={color} size={24} /> : <Feather name="zap" size={22} color={color} />,
         }}
       />
     </Tabs>

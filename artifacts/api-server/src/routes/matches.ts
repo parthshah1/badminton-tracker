@@ -185,6 +185,87 @@ router.get("/matches/:id", async (req, res) => {
   }
 });
 
+// ─── PATCH /matches/:id ──────────────────────────────────────────────────────
+
+router.patch("/matches/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid match ID" }); return; }
+
+    const [existing] = await db.select().from(matchesTable).where(eq(matchesTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Match not found" }); return; }
+
+    const { matchType, team1PlayerIds, team2PlayerIds, team1Score, team2Score, notes, playedAt } = req.body;
+
+    const VALID_MATCH_TYPES = ["singles", "doubles"];
+    if (!matchType || !VALID_MATCH_TYPES.includes(matchType)) {
+      res.status(400).json({ error: "matchType must be 'singles' or 'doubles'" }); return;
+    }
+    if (!Array.isArray(team1PlayerIds) || !Array.isArray(team2PlayerIds)) {
+      res.status(400).json({ error: "Player lists must be arrays" }); return;
+    }
+    const expectedCount = matchType === "singles" ? 1 : 2;
+    if (team1PlayerIds.length !== expectedCount || team2PlayerIds.length !== expectedCount) {
+      res.status(400).json({ error: `${matchType === "singles" ? "Singles" : "Doubles"} requires exactly ${expectedCount} player(s) per team` }); return;
+    }
+    const allSubmittedIds = [...team1PlayerIds, ...team2PlayerIds];
+    if (new Set(allSubmittedIds).size !== allSubmittedIds.length) {
+      res.status(400).json({ error: "A player cannot be on both teams" }); return;
+    }
+    const existingPlayers = await db.select({ id: playersTable.id }).from(playersTable).where(inArray(playersTable.id, allSubmittedIds));
+    if (existingPlayers.length !== allSubmittedIds.length) {
+      res.status(400).json({ error: "One or more player IDs do not exist" }); return;
+    }
+    const MAX_SCORE = 30;
+    if (typeof team1Score !== "number" || typeof team2Score !== "number") {
+      res.status(400).json({ error: "Scores must be numbers" }); return;
+    }
+    if (!Number.isInteger(team1Score) || !Number.isInteger(team2Score)) {
+      res.status(400).json({ error: "Scores must be whole numbers" }); return;
+    }
+    if (team1Score < 0 || team2Score < 0) {
+      res.status(400).json({ error: "Scores cannot be negative" }); return;
+    }
+    if (team1Score > MAX_SCORE || team2Score > MAX_SCORE) {
+      res.status(400).json({ error: `Scores cannot exceed ${MAX_SCORE}` }); return;
+    }
+    if (team1Score === team2Score) {
+      res.status(400).json({ error: "Scores cannot be tied" }); return;
+    }
+    if (notes && typeof notes === "string" && notes.length > 200) {
+      res.status(400).json({ error: "Notes must be 200 characters or fewer" }); return;
+    }
+
+    let parsedDate = existing.playedAt;
+    if (playedAt) {
+      parsedDate = new Date(playedAt);
+      if (isNaN(parsedDate.getTime())) {
+        res.status(400).json({ error: "Invalid date for playedAt" }); return;
+      }
+    }
+
+    const winnerTeam = team1Score > team2Score ? 1 : 2;
+    await db.update(matchesTable).set({
+      matchType, team1Score, team2Score, winnerTeam, notes: notes || null, playedAt: parsedDate,
+    }).where(eq(matchesTable.id, id));
+
+    await db.delete(matchPlayersTable).where(eq(matchPlayersTable.matchId, id));
+    await db.insert(matchPlayersTable).values([
+      ...team1PlayerIds.map((pid: number) => ({ matchId: id, playerId: pid, team: 1 })),
+      ...team2PlayerIds.map((pid: number) => ({ matchId: id, playerId: pid, team: 2 })),
+    ]);
+
+    await recalculateAllElos();
+
+    const [updatedMatch] = await db.select().from(matchesTable).where(eq(matchesTable.id, id));
+    const [result] = await buildMatchResponse([updatedMatch]);
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update match" });
+  }
+});
+
 // ─── DELETE /matches/:id ─────────────────────────────────────────────────────
 
 router.delete("/matches/:id", async (req, res) => {
@@ -318,6 +399,67 @@ router.get("/stats/leaderboard", async (_req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch leaderboard" });
+  }
+});
+
+// ─── GET /stats/rivalries ────────────────────────────────────────────────────
+
+router.get("/stats/rivalries", async (_req, res) => {
+  try {
+    const allPlayers = await db.select().from(playersTable);
+    const playerMap = new Map(allPlayers.map(p => [p.id, p]));
+
+    const allMatches = await db.select().from(matchesTable);
+    if (allMatches.length === 0) { res.json([]); return; }
+
+    const matchIds = allMatches.map(m => m.id);
+    const allParticipants = await db.select().from(matchPlayersTable).where(inArray(matchPlayersTable.matchId, matchIds));
+
+    // For each match, iterate all cross-team player pairs
+    const rivalryMap = new Map<string, { p1Id: number; p2Id: number; p1Wins: number; p2Wins: number; total: number; lastPlayedAt: Date }>();
+
+    for (const match of allMatches) {
+      const participants = allParticipants.filter(p => p.matchId === match.id);
+      const team1 = participants.filter(p => p.team === 1).map(p => p.playerId);
+      const team2 = participants.filter(p => p.team === 2).map(p => p.playerId);
+
+      for (const a of team1) {
+        for (const b of team2) {
+          // Canonical order: lower id is "p1"
+          const [loId, hiId, loInTeam1] = a < b ? [a, b, true] : [b, a, false];
+          const key = `${loId}-${hiId}`;
+          if (!rivalryMap.has(key)) {
+            rivalryMap.set(key, { p1Id: loId, p2Id: hiId, p1Wins: 0, p2Wins: 0, total: 0, lastPlayedAt: match.playedAt });
+          }
+          const r = rivalryMap.get(key)!;
+          r.total++;
+          const loWon = loInTeam1 ? match.winnerTeam === 1 : match.winnerTeam === 2;
+          if (loWon) r.p1Wins++; else r.p2Wins++;
+          if (match.playedAt > r.lastPlayedAt) r.lastPlayedAt = match.playedAt;
+        }
+      }
+    }
+
+    const result = Array.from(rivalryMap.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10)
+      .map(r => {
+        const p1 = playerMap.get(r.p1Id);
+        const p2 = playerMap.get(r.p2Id);
+        return {
+          player1: { id: r.p1Id, name: p1?.name ?? "Unknown", avatarColor: p1?.avatarColor ?? "#3B82F6" },
+          player2: { id: r.p2Id, name: p2?.name ?? "Unknown", avatarColor: p2?.avatarColor ?? "#3B82F6" },
+          player1Wins: r.p1Wins,
+          player2Wins: r.p2Wins,
+          total: r.total,
+          lastPlayedAt: r.lastPlayedAt.toISOString(),
+        };
+      });
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch rivalries" });
   }
 });
 

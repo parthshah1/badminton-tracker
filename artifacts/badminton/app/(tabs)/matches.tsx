@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -32,7 +33,7 @@ async function fetchPlayers() {
   return res.json() as Promise<any[]>;
 }
 
-function DeletableMatchCard({ match, colors, isDark, onDelete }: { match: any; colors: any; isDark: boolean; onDelete: (id: number) => void }) {
+function DeletableMatchCard({ match, colors, isDark, onDelete }: { match: any; colors: any; isDark: boolean; onDelete: (id: number) => void; }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const isWeb = Platform.OS === "web";
 
@@ -40,12 +41,12 @@ function DeletableMatchCard({ match, colors, isDark, onDelete }: { match: any; c
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10 && Math.abs(g.dy) < 20,
       onPanResponderMove: (_, g) => {
-        if (g.dx < 0) translateX.setValue(Math.max(g.dx, -80));
+        if (g.dx < 0) translateX.setValue(Math.max(g.dx, -160));
         else if (g.dx > 0) translateX.setValue(Math.min(g.dx, 0));
       },
       onPanResponderRelease: (_, g) => {
-        if (g.dx < -60) {
-          Animated.spring(translateX, { toValue: -80, useNativeDriver: true }).start();
+        if (g.dx < -80) {
+          Animated.spring(translateX, { toValue: -160, useNativeDriver: true }).start();
         } else {
           Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
         }
@@ -71,11 +72,18 @@ function DeletableMatchCard({ match, colors, isDark, onDelete }: { match: any; c
       <View style={styles.webRow}>
         <View style={{ flex: 1 }}><MatchCard {...match} /></View>
         <Pressable
-          onPress={confirmDelete}
-          style={({ pressed }) => [styles.webDeleteBtn, { backgroundColor: colors.danger + "15", opacity: pressed ? 0.7 : 1 }]}
+          onPress={() => router.push({ pathname: "/edit-match", params: { id: match.id } })}
+          style={({ pressed }) => [styles.webActionBtn, { backgroundColor: colors.tint + "15", opacity: pressed ? 0.7 : 1 }]}
           hitSlop={8}
         >
-          <Feather name="trash-2" size={18} color={colors.danger} />
+          <Feather name="edit-2" size={16} color={colors.tint} />
+        </Pressable>
+        <Pressable
+          onPress={confirmDelete}
+          style={({ pressed }) => [styles.webActionBtn, { backgroundColor: colors.danger + "15", opacity: pressed ? 0.7 : 1 }]}
+          hitSlop={8}
+        >
+          <Feather name="trash-2" size={16} color={colors.danger} />
         </Pressable>
       </View>
     );
@@ -83,9 +91,22 @@ function DeletableMatchCard({ match, colors, isDark, onDelete }: { match: any; c
 
   return (
     <View style={{ position: "relative" }}>
-      <View style={[styles.deleteUnderlay, { backgroundColor: isDark ? "rgba(239,68,68,0.15)" : "rgba(239,68,68,0.1)" }]}>
-        <Pressable onPress={confirmDelete} style={styles.deleteUnderlayInner}>
-          <Feather name="trash-2" size={20} color={colors.danger} />
+      <View style={styles.swipeActions}>
+        <Pressable
+          onPress={() => {
+            Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+            router.push({ pathname: "/edit-match", params: { id: match.id } });
+          }}
+          style={[styles.swipeActionBtn, { backgroundColor: isDark ? "rgba(34,197,94,0.15)" : "rgba(34,197,94,0.1)" }]}
+        >
+          <Feather name="edit-2" size={18} color={colors.tint} />
+          <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.tint }}>Edit</Text>
+        </Pressable>
+        <Pressable
+          onPress={confirmDelete}
+          style={[styles.swipeActionBtn, { backgroundColor: isDark ? "rgba(239,68,68,0.15)" : "rgba(239,68,68,0.1)" }]}
+        >
+          <Feather name="trash-2" size={18} color={colors.danger} />
           <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.danger }}>Delete</Text>
         </Pressable>
       </View>
@@ -357,11 +378,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   loadMoreText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  webRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  webDeleteBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  deleteUnderlay: {
-    position: "absolute", right: 0, top: 0, bottom: 0, width: 80,
-    borderRadius: 16, alignItems: "center", justifyContent: "center",
+  webRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  webActionBtn: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  swipeActions: {
+    position: "absolute", right: 0, top: 0, bottom: 0, width: 160,
+    flexDirection: "row", borderRadius: 16, overflow: "hidden",
   },
-  deleteUnderlayInner: { alignItems: "center", gap: 4, paddingHorizontal: 12 },
+  swipeActionBtn: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4 },
 });
