@@ -63,18 +63,13 @@ export default function HomeScreen() {
   const leaderboard = leaderboardQuery.data ?? [];
 
   const totalMatches = allMatches.length;
-  const avgWinRate =
-    leaderboard.length > 0
-      ? Math.round(
-          (leaderboard.reduce((sum: number, p: any) => sum + p.winRate, 0) / leaderboard.length) * 100
-        )
-      : 0;
   const activeStreak = leaderboard.find((p: any) => p.currentWinStreak >= 3);
 
   const handleDeleteMatch = async (id: number) => {
     await fetch(`${BASE}/api/matches/${id}`, { method: "DELETE" });
     queryClient.invalidateQueries({ queryKey: ["matches"] });
     queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+    queryClient.invalidateQueries({ queryKey: ["players"] });
     queryClient.invalidateQueries({ queryKey: ["playerStats"] });
   };
 
@@ -85,9 +80,7 @@ export default function HomeScreen() {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingBottom: isWeb ? 34 + 84 : 100,
-        }}
+        contentContainerStyle={{ paddingBottom: isWeb ? 34 + 84 : 100 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -99,21 +92,21 @@ export default function HomeScreen() {
       >
         {/* Hero Header */}
         <LinearGradient
-          colors={isDark ? ["#14532D", "#0F172A"] : ["#15803D", "#16A34A"]}
+          colors={isDark ? ["#0D3320", "#0F172A"] : ["#166534", "#15803D"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.hero, { paddingTop: topPadding + 20 }]}
         >
           <View style={styles.heroHeader}>
             <View>
-              <Text style={styles.heroGreeting}>{getGreeting()}</Text>
-              <Text style={styles.heroTitle}>Badminton Tracker</Text>
+              <Text style={styles.heroGreeting}>{getGreeting()} 👋</Text>
+              <Text style={styles.heroTitle}>Badminton</Text>
             </View>
             <Pressable
               onPress={() => router.push("/add-player")}
               style={({ pressed }) => [styles.addPlayerBtn, { opacity: pressed ? 0.75 : 1 }]}
             >
-              <Feather name="user-plus" size={19} color="#fff" />
+              <Feather name="user-plus" size={18} color="#fff" />
             </Pressable>
           </View>
 
@@ -122,28 +115,19 @@ export default function HomeScreen() {
             <View style={styles.statsStrip}>
               <View style={styles.statChip}>
                 <Text style={styles.statChipValue}>{totalMatches}</Text>
-                <Text style={styles.statChipLabel}>Matches</Text>
+                <Text style={styles.statChipLabel}>MATCHES</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statChip}>
                 <Text style={styles.statChipValue}>{leaderboard.length}</Text>
-                <Text style={styles.statChipLabel}>Players</Text>
+                <Text style={styles.statChipLabel}>PLAYERS</Text>
               </View>
-              {avgWinRate > 0 && (
-                <>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statChip}>
-                    <Text style={styles.statChipValue}>{avgWinRate}%</Text>
-                    <Text style={styles.statChipLabel}>Avg Win Rate</Text>
-                  </View>
-                </>
-              )}
               {activeStreak && (
                 <>
                   <View style={styles.statDivider} />
                   <View style={styles.statChip}>
                     <Text style={styles.statChipValue}>🔥 {activeStreak.currentWinStreak}</Text>
-                    <Text style={styles.statChipLabel}>{activeStreak.playerName.split(" ")[0]}</Text>
+                    <Text style={styles.statChipLabel}>{activeStreak.playerName.split(" ")[0].toUpperCase()}</Text>
                   </View>
                 </>
               )}
@@ -153,13 +137,15 @@ export default function HomeScreen() {
           {/* Log Match CTA */}
           <Pressable
             onPress={() => router.push("/add-match")}
-            style={({ pressed }) => [styles.ctaButton, { opacity: pressed ? 0.88 : 1 }]}
+            style={({ pressed }) => [styles.ctaButton, { opacity: pressed ? 0.9 : 1 }]}
           >
             <View style={styles.ctaInner}>
-              <Feather name="plus-circle" size={22} color="#16A34A" />
+              <View style={styles.ctaIconWrap}>
+                <Feather name="plus" size={20} color="#16A34A" />
+              </View>
               <Text style={styles.ctaText}>Log Match Result</Text>
             </View>
-            <Feather name="chevron-right" size={18} color="#64748B" />
+            <Feather name="chevron-right" size={18} color="#94A3B8" />
           </Pressable>
         </LinearGradient>
 
@@ -167,7 +153,7 @@ export default function HomeScreen() {
           {/* Top Performer */}
           {topPlayer && topPlayer.totalMatches > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Performer</Text>
+              <SectionHeader title="Top Performer" colors={colors} />
               <Pressable
                 onPress={() =>
                   router.push({ pathname: "/player/[id]", params: { id: topPlayer.playerId } })
@@ -176,54 +162,65 @@ export default function HomeScreen() {
                   styles.topCard,
                   {
                     backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    shadowColor: isDark ? "#000" : "#94A3B8",
-                    opacity: pressed ? 0.88 : 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.06)" : colors.border,
+                    shadowColor: isDark ? "#000" : "#64748B",
+                    opacity: pressed ? 0.9 : 1,
                   },
                 ]}
               >
-                <View style={[styles.topCardAccent, { backgroundColor: colors.tint }]} />
-                <View style={styles.topCardContent}>
-                  <View style={styles.topCardLeft}>
-                    <View style={styles.topAvatarWrap}>
-                      <PlayerAvatar
-                        name={topPlayer.playerName}
-                        color={topPlayer.avatarColor}
-                        size={56}
-                        fontSize={20}
-                      />
-                      <View style={[styles.crownBadge, { backgroundColor: "#FEF3C7" }]}>
-                        <Text style={styles.crownEmoji}>👑</Text>
+                <LinearGradient
+                  colors={[topPlayer.avatarColor + "30", "transparent"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.topCardGradient}
+                >
+                  <View style={styles.topCardContent}>
+                    <View style={styles.topCardLeft}>
+                      <View style={styles.topAvatarWrap}>
+                        <PlayerAvatar
+                          name={topPlayer.playerName}
+                          color={topPlayer.avatarColor}
+                          size={56}
+                          fontSize={20}
+                        />
+                        <View style={[styles.crownBadge, { backgroundColor: "#FEF3C7" }]}>
+                          <Text style={styles.crownEmoji}>👑</Text>
+                        </View>
+                      </View>
+                      <View>
+                        <Text style={[styles.topName, { color: colors.text }]}>
+                          {topPlayer.playerName}
+                        </Text>
+                        <Text style={[styles.topRecord, { color: colors.textSecondary }]}>
+                          {topPlayer.wins}W · {topPlayer.losses}L · {topPlayer.totalMatches} played
+                        </Text>
+                        {topPlayer.elo !== undefined && (
+                          <Text style={[styles.topElo, { color: colors.textMuted }]}>
+                            {topPlayer.elo} ELO
+                          </Text>
+                        )}
                       </View>
                     </View>
-                    <View>
-                      <Text style={[styles.topName, { color: colors.text }]}>
-                        {topPlayer.playerName}
+                    <View style={styles.topCardRight}>
+                      <Text style={[styles.topWinRate, { color: colors.tint }]}>
+                        {Math.round(topPlayer.winRate * 100)}%
                       </Text>
-                      <Text style={[styles.topRecord, { color: colors.textSecondary }]}>
-                        {topPlayer.wins}W · {topPlayer.losses}L · {topPlayer.totalMatches} played
+                      <Text style={[styles.topWinRateLabel, { color: colors.textMuted }]}>
+                        win rate
                       </Text>
                     </View>
                   </View>
-                  <View style={styles.topCardRight}>
-                    <Text style={[styles.topWinRate, { color: colors.tint }]}>
-                      {Math.round(topPlayer.winRate * 100)}%
-                    </Text>
-                    <Text style={[styles.topWinRateLabel, { color: colors.textMuted }]}>
-                      win rate
-                    </Text>
-                  </View>
-                </View>
+                </LinearGradient>
               </Pressable>
             </View>
           )}
 
           {/* Recent Matches */}
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Matches</Text>
+            <View style={styles.sectionHeaderRow}>
+              <SectionHeader title="Recent Matches" colors={colors} />
               {recentMatches.length > 0 && (
-                <View style={[styles.countBadge, { backgroundColor: colors.backgroundSecondary }]}>
+                <View style={[styles.countBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : colors.backgroundSecondary }]}>
                   <Text style={[styles.countBadgeText, { color: colors.textSecondary }]}>
                     {totalMatches}
                   </Text>
@@ -237,7 +234,7 @@ export default function HomeScreen() {
               </View>
             ) : recentMatches.length === 0 ? (
               <View
-                style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+                style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: isDark ? "rgba(255,255,255,0.06)" : colors.border }]}
               >
                 <View style={[styles.emptyIconWrap, { backgroundColor: colors.tint + "15" }]}>
                   <Feather name="activity" size={28} color={colors.tint} />
@@ -266,6 +263,12 @@ export default function HomeScreen() {
   );
 }
 
+function SectionHeader({ title, colors }: { title: string; colors: any }) {
+  return (
+    <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   hero: {
@@ -279,28 +282,29 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   heroGreeting: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.7)",
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    color: "rgba(255,255,255,0.65)",
     marginBottom: 2,
   },
   heroTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: "Inter_700Bold",
     color: "#fff",
+    letterSpacing: -0.5,
   },
   addPlayerBtn: {
     width: 42,
     height: 42,
     borderRadius: 13,
-    backgroundColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
+    marginTop: 6,
   },
   statsStrip: {
     flexDirection: "row",
-    backgroundColor: "rgba(0,0,0,0.18)",
+    backgroundColor: "rgba(0,0,0,0.2)",
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -309,29 +313,30 @@ const styles = StyleSheet.create({
   statChip: {
     flex: 1,
     alignItems: "center",
-    gap: 2,
+    gap: 3,
   },
   statChipValue: {
-    fontSize: 17,
+    fontSize: 18,
     fontFamily: "Inter_700Bold",
     color: "#fff",
+    letterSpacing: -0.3,
   },
   statChipLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_500Medium",
-    color: "rgba(255,255,255,0.65)",
-    letterSpacing: 0.3,
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    color: "rgba(255,255,255,0.5)",
+    letterSpacing: 0.8,
   },
   statDivider: {
     width: 1,
     height: 28,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(255,255,255,0.15)",
   },
   ctaButton: {
     backgroundColor: "#fff",
     borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -340,6 +345,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+  },
+  ctaIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
   },
   ctaText: {
     fontSize: 16,
@@ -350,15 +363,16 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 28,
   },
-  section: { gap: 14 },
-  sectionHeader: {
+  section: { gap: 12 },
+  sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
   sectionTitle: {
-    fontSize: 19,
+    fontSize: 18,
     fontFamily: "Inter_700Bold",
+    letterSpacing: -0.3,
   },
   countBadge: {
     paddingHorizontal: 8,
@@ -370,20 +384,18 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   topCard: {
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     overflow: "hidden",
-    flexDirection: "row",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  topCardAccent: {
-    width: 5,
+  topCardGradient: {
+    flex: 1,
   },
   topCardContent: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
@@ -413,24 +425,31 @@ const styles = StyleSheet.create({
   topName: {
     fontSize: 16,
     fontFamily: "Inter_700Bold",
-    marginBottom: 3,
+    marginBottom: 2,
+    letterSpacing: -0.2,
   },
   topRecord: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
+    marginBottom: 1,
+  },
+  topElo: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
   },
   topCardRight: {
     alignItems: "flex-end",
   },
   topWinRate: {
-    fontSize: 28,
+    fontSize: 30,
     fontFamily: "Inter_700Bold",
+    letterSpacing: -1,
   },
   topWinRateLabel: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
   },
-  matchList: { gap: 12 },
+  matchList: { gap: 10 },
   loadingBox: {
     paddingVertical: 40,
     alignItems: "center",
@@ -438,7 +457,7 @@ const styles = StyleSheet.create({
   emptyBox: {
     alignItems: "center",
     padding: 36,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     gap: 10,
     borderStyle: "dashed",

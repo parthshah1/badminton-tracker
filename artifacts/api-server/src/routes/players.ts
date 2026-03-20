@@ -11,6 +11,7 @@ router.get("/players", async (_req, res) => {
       id: p.id,
       name: p.name,
       avatarColor: p.avatarColor,
+      elo: p.elo,
       createdAt: p.createdAt.toISOString(),
     })));
   } catch (err) {
@@ -22,26 +23,13 @@ router.post("/players", async (req, res) => {
   try {
     const { name, avatarColor } = req.body;
     if (!name || typeof name !== "string") {
-      res.status(400).json({ error: "Name is required" });
-      return;
+      res.status(400).json({ error: "Name is required" }); return;
     }
     const trimmed = name.trim();
-    if (trimmed.length < 2) {
-      res.status(400).json({ error: "Name must be at least 2 characters" });
-      return;
-    }
-    if (trimmed.length > 30) {
-      res.status(400).json({ error: "Name must be 30 characters or fewer" });
-      return;
-    }
-    const existing = await db
-      .select()
-      .from(playersTable)
-      .where(sql`lower(${playersTable.name}) = lower(${trimmed})`);
-    if (existing.length > 0) {
-      res.status(409).json({ error: "A player with that name already exists" });
-      return;
-    }
+    if (trimmed.length < 2) { res.status(400).json({ error: "Name must be at least 2 characters" }); return; }
+    if (trimmed.length > 30) { res.status(400).json({ error: "Name must be 30 characters or fewer" }); return; }
+    const existing = await db.select().from(playersTable).where(sql`lower(${playersTable.name}) = lower(${trimmed})`);
+    if (existing.length > 0) { res.status(409).json({ error: "A player with that name already exists" }); return; }
     const [player] = await db.insert(playersTable).values({
       name: trimmed,
       avatarColor: avatarColor || "#3B82F6",
@@ -50,6 +38,7 @@ router.post("/players", async (req, res) => {
       id: player.id,
       name: player.name,
       avatarColor: player.avatarColor,
+      elo: player.elo,
       createdAt: player.createdAt.toISOString(),
     });
   } catch (err) {
@@ -61,16 +50,8 @@ router.get("/players/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const [player] = await db.select().from(playersTable).where(eq(playersTable.id, id));
-    if (!player) {
-      res.status(404).json({ error: "Player not found" });
-      return;
-    }
-    res.json({
-      id: player.id,
-      name: player.name,
-      avatarColor: player.avatarColor,
-      createdAt: player.createdAt.toISOString(),
-    });
+    if (!player) { res.status(404).json({ error: "Player not found" }); return; }
+    res.json({ id: player.id, name: player.name, avatarColor: player.avatarColor, elo: player.elo, createdAt: player.createdAt.toISOString() });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch player" });
   }
@@ -79,52 +60,23 @@ router.get("/players/:id", async (req, res) => {
 router.patch("/players/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      res.status(400).json({ error: "Invalid player ID" });
-      return;
-    }
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid player ID" }); return; }
     const { name, avatarColor } = req.body;
     const updates: Record<string, string> = {};
     if (name !== undefined) {
-      if (typeof name !== "string") {
-        res.status(400).json({ error: "Name must be a string" });
-        return;
-      }
+      if (typeof name !== "string") { res.status(400).json({ error: "Name must be a string" }); return; }
       const trimmed = name.trim();
-      if (trimmed.length < 2) {
-        res.status(400).json({ error: "Name must be at least 2 characters" });
-        return;
-      }
-      if (trimmed.length > 30) {
-        res.status(400).json({ error: "Name must be 30 characters or fewer" });
-        return;
-      }
-      const existing = await db
-        .select()
-        .from(playersTable)
-        .where(sql`lower(${playersTable.name}) = lower(${trimmed}) and ${playersTable.id} != ${id}`);
-      if (existing.length > 0) {
-        res.status(409).json({ error: "A player with that name already exists" });
-        return;
-      }
+      if (trimmed.length < 2) { res.status(400).json({ error: "Name must be at least 2 characters" }); return; }
+      if (trimmed.length > 30) { res.status(400).json({ error: "Name must be 30 characters or fewer" }); return; }
+      const existing = await db.select().from(playersTable).where(sql`lower(${playersTable.name}) = lower(${trimmed}) and ${playersTable.id} != ${id}`);
+      if (existing.length > 0) { res.status(409).json({ error: "A player with that name already exists" }); return; }
       updates.name = trimmed;
     }
     if (avatarColor && typeof avatarColor === "string") updates.avatarColor = avatarColor;
-    if (Object.keys(updates).length === 0) {
-      res.status(400).json({ error: "No valid fields to update" });
-      return;
-    }
+    if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No valid fields to update" }); return; }
     const [player] = await db.update(playersTable).set(updates).where(eq(playersTable.id, id)).returning();
-    if (!player) {
-      res.status(404).json({ error: "Player not found" });
-      return;
-    }
-    res.json({
-      id: player.id,
-      name: player.name,
-      avatarColor: player.avatarColor,
-      createdAt: player.createdAt.toISOString(),
-    });
+    if (!player) { res.status(404).json({ error: "Player not found" }); return; }
+    res.json({ id: player.id, name: player.name, avatarColor: player.avatarColor, elo: player.elo, createdAt: player.createdAt.toISOString() });
   } catch (err) {
     res.status(500).json({ error: "Failed to update player" });
   }
@@ -133,7 +85,6 @@ router.patch("/players/:id", async (req, res) => {
 router.delete("/players/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    // Remove match participations first (cascade should handle, but be explicit)
     await db.delete(matchPlayersTable).where(eq(matchPlayersTable.playerId, id));
     await db.delete(playersTable).where(eq(playersTable.id, id));
     res.status(204).send();
@@ -145,12 +96,8 @@ router.delete("/players/:id", async (req, res) => {
 router.get("/players/:id/stats", async (req, res) => {
   try {
     const playerId = parseInt(req.params.id);
-
     const [player] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
-    if (!player) {
-      res.status(404).json({ error: "Player not found" });
-      return;
-    }
+    if (!player) { res.status(404).json({ error: "Player not found" }); return; }
 
     const matchParticipations = await db
       .select({
@@ -174,56 +121,40 @@ router.get("/players/:id/stats", async (req, res) => {
       const won = m.team === m.winnerTeam;
       if (won) {
         wins++;
-        if (m.matchType === "singles") singlesWins++;
-        else doublesWins++;
+        if (m.matchType === "singles") singlesWins++; else doublesWins++;
       } else {
         losses++;
-        if (m.matchType === "singles") singlesLosses++;
-        else doublesLosses++;
+        if (m.matchType === "singles") singlesLosses++; else doublesLosses++;
       }
     }
 
-    // Calculate streaks from newest to oldest
     let streakBroken = false;
     for (const m of matchParticipations) {
       const won = m.team === m.winnerTeam;
       if (!streakBroken) {
-        if (won) currentWinStreak++;
-        else streakBroken = true;
+        if (won) currentWinStreak++; else streakBroken = true;
       }
     }
 
-    // Calculate longest streak
     for (const m of [...matchParticipations].reverse()) {
       const won = m.team === m.winnerTeam;
-      if (won) {
-        tempStreak++;
-        if (tempStreak > longestWinStreak) longestWinStreak = tempStreak;
-      } else {
-        tempStreak = 0;
-      }
+      if (won) { tempStreak++; if (tempStreak > longestWinStreak) longestWinStreak = tempStreak; }
+      else tempStreak = 0;
     }
 
     const totalMatches = wins + losses;
     const winRate = totalMatches > 0 ? wins / totalMatches : 0;
-
-    // Get recent matches with full details
     const recentMatchIds = matchParticipations.slice(0, 5).map(m => m.matchId);
     const recentMatches = await getMatchesWithPlayers(recentMatchIds);
 
     res.json({
       playerId,
       playerName: player.name,
-      totalMatches,
-      wins,
-      losses,
-      winRate,
-      singlesWins,
-      singlesLosses,
-      doublesWins,
-      doublesLosses,
-      currentWinStreak,
-      longestWinStreak,
+      avatarColor: player.avatarColor,
+      elo: player.elo,
+      totalMatches, wins, losses, winRate,
+      singlesWins, singlesLosses, doublesWins, doublesLosses,
+      currentWinStreak, longestWinStreak,
       recentMatches,
     });
   } catch (err) {
@@ -236,51 +167,29 @@ router.get("/players/:id/h2h", async (req, res) => {
   try {
     const playerId = parseInt(req.params.id);
     const [player] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
-    if (!player) {
-      res.status(404).json({ error: "Player not found" });
-      return;
-    }
+    if (!player) { res.status(404).json({ error: "Player not found" }); return; }
 
     const myParticipations = await db
-      .select({
-        matchId: matchPlayersTable.matchId,
-        team: matchPlayersTable.team,
-        winnerTeam: matchesTable.winnerTeam,
-        playedAt: matchesTable.playedAt,
-      })
+      .select({ matchId: matchPlayersTable.matchId, team: matchPlayersTable.team, winnerTeam: matchesTable.winnerTeam, playedAt: matchesTable.playedAt })
       .from(matchPlayersTable)
       .innerJoin(matchesTable, eq(matchPlayersTable.matchId, matchesTable.id))
       .where(eq(matchPlayersTable.playerId, playerId));
 
-    if (myParticipations.length === 0) {
-      res.json([]);
-      return;
-    }
+    if (myParticipations.length === 0) { res.json([]); return; }
 
     const matchIds = myParticipations.map(m => m.matchId);
-    const myMatchMap = new Map(
-      myParticipations.map(m => [m.matchId, { team: m.team, won: m.team === m.winnerTeam, playedAt: m.playedAt }])
-    );
-
-    const allParticipants = await db
-      .select()
-      .from(matchPlayersTable)
-      .where(inArray(matchPlayersTable.matchId, matchIds));
-
+    const myMatchMap = new Map(myParticipations.map(m => [m.matchId, { team: m.team, won: m.team === m.winnerTeam, playedAt: m.playedAt }]));
+    const allParticipants = await db.select().from(matchPlayersTable).where(inArray(matchPlayersTable.matchId, matchIds));
     const allPlayers = await db.select().from(playersTable);
     const playerMap = new Map(allPlayers.map(p => [p.id, p]));
 
     const h2hMap = new Map<number, { wins: number; losses: number; lastPlayedAt: Date }>();
-
     for (const [matchId, myInfo] of myMatchMap.entries()) {
       const opponents = allParticipants.filter(p => p.matchId === matchId && p.playerId !== playerId && p.team !== myInfo.team);
       for (const opp of opponents) {
-        if (!h2hMap.has(opp.playerId)) {
-          h2hMap.set(opp.playerId, { wins: 0, losses: 0, lastPlayedAt: myInfo.playedAt });
-        }
+        if (!h2hMap.has(opp.playerId)) h2hMap.set(opp.playerId, { wins: 0, losses: 0, lastPlayedAt: myInfo.playedAt });
         const record = h2hMap.get(opp.playerId)!;
-        if (myInfo.won) record.wins++;
-        else record.losses++;
+        if (myInfo.won) record.wins++; else record.losses++;
         if (myInfo.playedAt > record.lastPlayedAt) record.lastPlayedAt = myInfo.playedAt;
       }
     }
@@ -288,15 +197,7 @@ router.get("/players/:id/h2h", async (req, res) => {
     const result = Array.from(h2hMap.entries())
       .map(([oppId, record]) => {
         const opp = playerMap.get(oppId);
-        return {
-          opponentId: oppId,
-          opponentName: opp?.name ?? "Unknown",
-          opponentAvatarColor: opp?.avatarColor ?? "#3B82F6",
-          wins: record.wins,
-          losses: record.losses,
-          total: record.wins + record.losses,
-          lastPlayedAt: record.lastPlayedAt.toISOString(),
-        };
+        return { opponentId: oppId, opponentName: opp?.name ?? "Unknown", opponentAvatarColor: opp?.avatarColor ?? "#3B82F6", wins: record.wins, losses: record.losses, total: record.wins + record.losses, lastPlayedAt: record.lastPlayedAt.toISOString() };
       })
       .sort((a, b) => b.total - a.total);
 
@@ -311,29 +212,18 @@ async function getMatchesWithPlayers(matchIds: number[]) {
   if (matchIds.length === 0) return [];
   const allPlayers = await db.select().from(playersTable);
   const playerMap = new Map(allPlayers.map(p => [p.id, p]));
-
   const results = [];
   for (const matchId of matchIds) {
     const [match] = await db.select().from(matchesTable).where(eq(matchesTable.id, matchId));
     if (!match) continue;
     const participants = await db.select().from(matchPlayersTable).where(eq(matchPlayersTable.matchId, matchId));
     results.push({
-      id: match.id,
-      matchType: match.matchType,
-      team1Score: match.team1Score,
-      team2Score: match.team2Score,
-      winnerTeam: match.winnerTeam,
-      notes: match.notes,
-      playedAt: match.playedAt.toISOString(),
-      createdAt: match.createdAt.toISOString(),
+      id: match.id, matchType: match.matchType, team1Score: match.team1Score, team2Score: match.team2Score,
+      winnerTeam: match.winnerTeam, notes: match.notes,
+      playedAt: match.playedAt.toISOString(), createdAt: match.createdAt.toISOString(),
       players: participants.map(p => {
         const player = playerMap.get(p.playerId);
-        return {
-          playerId: p.playerId,
-          playerName: player?.name ?? "Unknown",
-          avatarColor: player?.avatarColor ?? "#3B82F6",
-          team: p.team,
-        };
+        return { playerId: p.playerId, playerName: player?.name ?? "Unknown", avatarColor: player?.avatarColor ?? "#3B82F6", team: p.team };
       }),
     });
   }

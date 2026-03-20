@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -6,9 +6,10 @@ export const playersTable = pgTable("players", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   avatarColor: text("avatar_color").notNull().default("#3B82F6"),
+  elo: integer("elo").notNull().default(1200),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertPlayerSchema = createInsertSchema(playersTable).omit({ id: true, createdAt: true });
+export const insertPlayerSchema = createInsertSchema(playersTable).omit({ id: true, createdAt: true, elo: true });
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type Player = typeof playersTable.$inferSelect;

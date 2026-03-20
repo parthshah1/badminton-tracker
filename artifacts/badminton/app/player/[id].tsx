@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -116,29 +117,193 @@ export default function PlayerDetailScreen() {
     );
   };
 
+  const topPadding = isWeb ? insets.top + 67 : insets.top;
+  const topBarHeight = topPadding + 52;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Top bar */}
-      <View style={[styles.topBar, { paddingTop: isWeb ? insets.top + 67 : insets.top + 12 }]}>
+      {isLoading ? (
+        <View style={[styles.center, { paddingTop: topBarHeight + 40 }]}>
+          <ActivityIndicator color={colors.tint} size="large" />
+        </View>
+      ) : error || !stats ? (
+        <View style={[styles.center, { paddingTop: topBarHeight + 40 }]}>
+          <Feather name="alert-circle" size={32} color={colors.textMuted} />
+          <Text style={[styles.errorMsg, { color: colors.textMuted }]}>Could not load player</Text>
+        </View>
+      ) : (
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: isWeb ? 34 + 84 : 100 }}
+        >
+          {/* Gradient Hero */}
+          <LinearGradient
+            colors={[stats.avatarColor + "55", stats.avatarColor + "22", "transparent"]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={[styles.heroGradient, { paddingTop: topBarHeight + 8 }]}
+          >
+            {/* Hero content */}
+            <View style={styles.heroContent}>
+              <View style={[styles.avatarRing, { borderColor: stats.avatarColor + "66" }]}>
+                <PlayerAvatar
+                  name={stats.playerName}
+                  color={stats.avatarColor}
+                  size={80}
+                  fontSize={28}
+                />
+              </View>
+              <Text style={[styles.heroName, { color: isDark ? "#fff" : colors.text }]}>
+                {stats.playerName}
+              </Text>
+              <Text style={[styles.heroSubtitle, { color: isDark ? "rgba(255,255,255,0.6)" : colors.textSecondary }]}>
+                {stats.totalMatches} {stats.totalMatches === 1 ? "match" : "matches"} played
+              </Text>
+
+              <View style={styles.heroBadges}>
+                <View style={[styles.heroBadge, { backgroundColor: colors.tint + "25" }]}>
+                  <Text style={[styles.heroBadgeValue, { color: colors.tint }]}>
+                    {Math.round(stats.winRate * 100)}%
+                  </Text>
+                  <Text style={[styles.heroBadgeLabel, { color: colors.tint + "BB" }]}>WIN</Text>
+                </View>
+                {stats.elo !== undefined && (
+                  <View style={[styles.heroBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.07)" }]}>
+                    <Text style={[styles.heroBadgeValue, { color: isDark ? "#fff" : colors.text }]}>
+                      {stats.elo}
+                    </Text>
+                    <Text style={[styles.heroBadgeLabel, { color: colors.textMuted }]}>ELO</Text>
+                  </View>
+                )}
+                {stats.currentWinStreak >= 2 && (
+                  <View style={[styles.heroBadge, { backgroundColor: "#FEF3C7" }]}>
+                    <Text style={[styles.heroBadgeValue, { color: "#D97706" }]}>
+                      🔥{stats.currentWinStreak}
+                    </Text>
+                    <Text style={[styles.heroBadgeLabel, { color: "#92400E" }]}>STREAK</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </LinearGradient>
+
+          <View style={styles.body}>
+
+            {/* Stats grid */}
+            <View style={styles.statsGrid}>
+              <StatCard label="Wins" value={stats.wins} color={colors.tint} colors={colors} />
+              <StatCard label="Losses" value={stats.losses} color={colors.danger} colors={colors} />
+              <StatCard label="Win Streak" value={stats.currentWinStreak} color="#F59E0B" colors={colors} />
+              <StatCard label="Best Streak" value={stats.longestWinStreak} color="#8B5CF6" colors={colors} />
+            </View>
+
+            {/* Breakdown */}
+            <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: isDark ? "rgba(255,255,255,0.06)" : colors.border }]}>
+              <Text style={[styles.sectionCardTitle, { color: colors.text }]}>Format Breakdown</Text>
+              <View style={styles.breakdownRow}>
+                <BreakdownItem
+                  label="Singles"
+                  wins={stats.singlesWins}
+                  losses={stats.singlesLosses}
+                  colors={colors}
+                />
+                <View style={[styles.breakdownDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.07)" : colors.border }]} />
+                <BreakdownItem
+                  label="Doubles"
+                  wins={stats.doublesWins}
+                  losses={stats.doublesLosses}
+                  colors={colors}
+                />
+              </View>
+            </View>
+
+            {/* Head-to-Head */}
+            {h2h.length > 0 && (
+              <View>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Head-to-Head</Text>
+                <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: isDark ? "rgba(255,255,255,0.06)" : colors.border, gap: 0 }]}>
+                  {h2h.map((opp: any, idx: number) => {
+                    const total = opp.wins + opp.losses;
+                    const winPct = total > 0 ? opp.wins / total : 0;
+                    const isWinning = opp.wins > opp.losses;
+                    const isTied = opp.wins === opp.losses;
+                    return (
+                      <View key={opp.opponentId}>
+                        {idx > 0 && <View style={[styles.h2hDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : colors.border }]} />}
+                        <View style={styles.h2hRow}>
+                          <PlayerAvatar name={opp.opponentName} color={opp.opponentAvatarColor} size={38} fontSize={14} />
+                          <View style={styles.h2hInfo}>
+                            <View style={styles.h2hNameRow}>
+                              <Text style={[styles.h2hName, { color: colors.text }]}>{opp.opponentName}</Text>
+                              <View style={[
+                                styles.h2hResultPill,
+                                { backgroundColor: isWinning ? colors.tint + "18" : isTied ? colors.backgroundSecondary : colors.danger + "12" }
+                              ]}>
+                                <Text style={[
+                                  styles.h2hResultText,
+                                  { color: isWinning ? colors.tint : isTied ? colors.textSecondary : colors.danger }
+                                ]}>
+                                  {isWinning ? "Winning" : isTied ? "Tied" : "Losing"}
+                                </Text>
+                              </View>
+                            </View>
+                            <View style={styles.h2hBarRow}>
+                              <Text style={[styles.h2hRecord, { color: colors.textMuted }]}>
+                                {opp.wins}W – {opp.losses}L
+                              </Text>
+                              <View style={[styles.h2hBar, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : colors.border }]}>
+                                {total > 0 && (
+                                  <View style={[styles.h2hBarFill, { width: `${winPct * 100}%`, backgroundColor: isWinning ? colors.tint : colors.danger }]} />
+                                )}
+                              </View>
+                              <Text style={[styles.h2hPct, { color: colors.textMuted }]}>{Math.round(winPct * 100)}%</Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Recent matches */}
+            {stats.recentMatches && stats.recentMatches.length > 0 && (
+              <View>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Matches</Text>
+                <View style={styles.matchList}>
+                  {stats.recentMatches.map((match: any) => (
+                    <MatchCard key={match.id} {...match} compact />
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Floating top bar - always visible over scroll content */}
+      <View style={[styles.topBar, { paddingTop: topPadding, top: 0 }]}>
         <Pressable
           onPress={() => router.back()}
-          style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[styles.iconBtn, { backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.85)", borderColor: "transparent" }]}
           hitSlop={12}
         >
-          <Feather name="arrow-left" size={20} color={colors.text} />
+          <Feather name="arrow-left" size={20} color={isDark ? "#fff" : colors.text} />
         </Pressable>
         {!isLoading && stats && (
           <View style={styles.topBarActions}>
             <Pressable
               onPress={openEdit}
-              style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              style={[styles.iconBtn, { backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.85)", borderColor: "transparent" }]}
               hitSlop={12}
             >
-              <Feather name="edit-2" size={18} color={colors.text} />
+              <Feather name="edit-2" size={18} color={isDark ? "#fff" : colors.text} />
             </Pressable>
             <Pressable
               onPress={handleDelete}
-              style={[styles.iconBtn, { backgroundColor: colors.danger + "15", borderColor: colors.danger + "30" }]}
+              style={[styles.iconBtn, { backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.85)", borderColor: "transparent" }]}
               hitSlop={12}
             >
               {deleteLoading ? (
@@ -150,159 +315,6 @@ export default function PlayerDetailScreen() {
           </View>
         )}
       </View>
-
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.tint} size="large" />
-        </View>
-      ) : error || !stats ? (
-        <View style={styles.center}>
-          <Feather name="alert-circle" size={32} color={colors.textMuted} />
-          <Text style={[styles.errorMsg, { color: colors.textMuted }]}>Could not load player</Text>
-        </View>
-      ) : (
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingBottom: isWeb ? 34 + 84 : 100,
-            gap: 20,
-            paddingTop: 12,
-          }}
-        >
-          {/* Player hero */}
-          <View style={[styles.heroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <PlayerAvatar name={stats.playerName} color={stats.avatarColor ?? "#3B82F6"} size={72} fontSize={26} />
-            <Text style={[styles.heroName, { color: colors.text }]}>{stats.playerName}</Text>
-            <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-              {stats.totalMatches} {stats.totalMatches === 1 ? "match" : "matches"} played
-            </Text>
-            <View style={[styles.winRateBadge, { backgroundColor: colors.tint + "20" }]}>
-              <Text style={[styles.winRateValue, { color: colors.tint }]}>
-                {Math.round(stats.winRate * 100)}%
-              </Text>
-              <Text style={[styles.winRateLabel, { color: colors.tint }]}>Win Rate</Text>
-            </View>
-          </View>
-
-          {/* Stats grid */}
-          <View style={styles.statsGrid}>
-            <StatCard label="Wins" value={stats.wins} color={colors.tint} colors={colors} />
-            <StatCard label="Losses" value={stats.losses} color={colors.danger} colors={colors} />
-            <StatCard label="Win Streak" value={stats.currentWinStreak} color="#F59E0B" colors={colors} />
-            <StatCard label="Best Streak" value={stats.longestWinStreak} color="#8B5CF6" colors={colors} />
-          </View>
-
-          {/* Breakdown */}
-          <View style={[styles.breakdownCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.breakdownTitle, { color: colors.text }]}>Format Breakdown</Text>
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownItem}>
-                <Text style={[styles.breakdownType, { color: colors.textSecondary }]}>Singles</Text>
-                <Text style={[styles.breakdownScore, { color: colors.text }]}>
-                  {stats.singlesWins}W – {stats.singlesLosses}L
-                </Text>
-                <View style={[styles.miniBar, { backgroundColor: colors.border }]}>
-                  {(stats.singlesWins + stats.singlesLosses) > 0 && (
-                    <View
-                      style={[
-                        styles.miniBarFill,
-                        {
-                          backgroundColor: colors.tint,
-                          width: `${(stats.singlesWins / (stats.singlesWins + stats.singlesLosses)) * 100}%`,
-                        },
-                      ]}
-                    />
-                  )}
-                </View>
-              </View>
-              <View style={[styles.breakdownDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.breakdownItem}>
-                <Text style={[styles.breakdownType, { color: colors.textSecondary }]}>Doubles</Text>
-                <Text style={[styles.breakdownScore, { color: colors.text }]}>
-                  {stats.doublesWins}W – {stats.doublesLosses}L
-                </Text>
-                <View style={[styles.miniBar, { backgroundColor: colors.border }]}>
-                  {(stats.doublesWins + stats.doublesLosses) > 0 && (
-                    <View
-                      style={[
-                        styles.miniBarFill,
-                        {
-                          backgroundColor: colors.tint,
-                          width: `${(stats.doublesWins / (stats.doublesWins + stats.doublesLosses)) * 100}%`,
-                        },
-                      ]}
-                    />
-                  )}
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Head-to-Head */}
-          {h2h.length > 0 && (
-            <View>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Head-to-Head</Text>
-              <View style={[styles.h2hCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                {h2h.map((opp: any, idx: number) => {
-                  const total = opp.wins + opp.losses;
-                  const winPct = total > 0 ? opp.wins / total : 0;
-                  const isWinning = opp.wins > opp.losses;
-                  const isTied = opp.wins === opp.losses;
-                  return (
-                    <View key={opp.opponentId}>
-                      {idx > 0 && <View style={[styles.h2hDivider, { backgroundColor: colors.border }]} />}
-                      <View style={styles.h2hRow}>
-                        <PlayerAvatar name={opp.opponentName} color={opp.opponentAvatarColor} size={38} fontSize={14} />
-                        <View style={styles.h2hInfo}>
-                          <View style={styles.h2hNameRow}>
-                            <Text style={[styles.h2hName, { color: colors.text }]}>{opp.opponentName}</Text>
-                            <View style={[
-                              styles.h2hResultPill,
-                              { backgroundColor: isWinning ? colors.tint + "18" : isTied ? colors.backgroundSecondary : colors.danger + "12" }
-                            ]}>
-                              <Text style={[
-                                styles.h2hResultText,
-                                { color: isWinning ? colors.tint : isTied ? colors.textSecondary : colors.danger }
-                              ]}>
-                                {isWinning ? "Winning" : isTied ? "Tied" : "Losing"}
-                              </Text>
-                            </View>
-                          </View>
-                          <View style={styles.h2hBarRow}>
-                            <Text style={[styles.h2hRecord, { color: colors.textMuted }]}>
-                              {opp.wins}W – {opp.losses}L
-                            </Text>
-                            <View style={[styles.h2hBar, { backgroundColor: colors.border }]}>
-                              {total > 0 && (
-                                <View style={[styles.h2hBarFill, { width: `${winPct * 100}%`, backgroundColor: isWinning ? colors.tint : colors.danger }]} />
-                              )}
-                            </View>
-                            <Text style={[styles.h2hPct, { color: colors.textMuted }]}>{Math.round(winPct * 100)}%</Text>
-                          </View>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          )}
-
-          {/* Recent matches */}
-          {stats.recentMatches && stats.recentMatches.length > 0 && (
-            <View>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Matches</Text>
-              <View style={styles.matchList}>
-                {stats.recentMatches.map((match: any) => (
-                  <MatchCard key={match.id} {...match} compact />
-                ))}
-              </View>
-            </View>
-          )}
-        </ScrollView>
-      )}
 
       {/* Edit Modal */}
       <Modal
@@ -337,7 +349,6 @@ export default function PlayerDetailScreen() {
             contentContainerStyle={styles.modalContent}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Preview */}
             <View style={styles.previewSection}>
               <PlayerAvatar name={editName || "?"} color={editColor} size={80} fontSize={28} />
               <Text style={[styles.previewName, { color: colors.text }]}>
@@ -401,22 +412,66 @@ export default function PlayerDetailScreen() {
 }
 
 function StatCard({ label, value, color, colors }: { label: string; value: number; color: string; colors: any }) {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
   return (
-    <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: isDark ? "rgba(255,255,255,0.06)" : colors.border }]}>
       <Text style={[styles.statValue, { color }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
     </View>
   );
 }
 
+function BreakdownItem({ label, wins, losses, colors }: { label: string; wins: number; losses: number; colors: any }) {
+  const total = wins + losses;
+  return (
+    <View style={styles.breakdownItem}>
+      <Text style={[styles.breakdownType, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.breakdownScore, { color: colors.text }]}>
+        {wins}W – {losses}L
+      </Text>
+      <View style={[styles.miniBar, { backgroundColor: colors.border }]}>
+        {total > 0 && (
+          <View
+            style={[
+              styles.miniBarFill,
+              {
+                backgroundColor: colors.tint,
+                width: `${(wins / total) * 100}%`,
+              },
+            ]}
+          />
+        )}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  errorMsg: {
+    fontSize: 16,
+    fontFamily: "Inter_400Regular",
+  },
+  heroGradient: {
+    paddingBottom: 28,
+  },
   topBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 10,
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 12,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-end",
   },
   topBarActions: {
     flexDirection: "row",
@@ -430,48 +485,57 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-  },
-  errorMsg: {
-    fontSize: 16,
-    fontFamily: "Inter_400Regular",
-  },
-  heroCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 24,
+  heroContent: {
     alignItems: "center",
     gap: 8,
+    paddingHorizontal: 20,
+  },
+  avatarRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
   },
   heroName: {
-    fontSize: 26,
+    fontSize: 28,
     fontFamily: "Inter_700Bold",
-    marginTop: 4,
+    letterSpacing: -0.5,
   },
   heroSubtitle: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
   },
-  winRateBadge: {
+  heroBadges: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  heroBadge: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 6,
-    paddingHorizontal: 16,
+    gap: 4,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
-    marginTop: 8,
+    borderRadius: 14,
   },
-  winRateValue: {
-    fontSize: 32,
+  heroBadgeValue: {
+    fontSize: 20,
     fontFamily: "Inter_700Bold",
+    letterSpacing: -0.3,
   },
-  winRateLabel: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
+  heroBadgeLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
+  },
+  body: {
+    padding: 16,
+    gap: 20,
   },
   statsGrid: {
     flexDirection: "row",
@@ -490,19 +554,20 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 36,
     fontFamily: "Inter_700Bold",
+    letterSpacing: -1,
   },
   statLabel: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
   },
-  breakdownCard: {
+  sectionCard: {
     borderRadius: 16,
     borderWidth: 1,
     padding: 18,
-    gap: 16,
+    gap: 14,
   },
-  breakdownTitle: {
-    fontSize: 16,
+  sectionCardTitle: {
+    fontSize: 15,
     fontFamily: "Inter_700Bold",
   },
   breakdownRow: {
@@ -521,9 +586,10 @@ const styles = StyleSheet.create({
   breakdownScore: {
     fontSize: 18,
     fontFamily: "Inter_700Bold",
+    letterSpacing: -0.3,
   },
   miniBar: {
-    height: 6,
+    height: 5,
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -535,21 +601,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontFamily: "Inter_700Bold",
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  h2hCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
+  h2hDivider: { height: 1 },
   h2hRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    padding: 14,
   },
-  h2hDivider: { height: 1 },
   h2hInfo: { flex: 1, gap: 6 },
   h2hNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   h2hName: { fontSize: 15, fontFamily: "Inter_600SemiBold", flex: 1 },

@@ -131,6 +131,8 @@ export default function AddMatchScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["matches"] });
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["players"] });
+      queryClient.invalidateQueries({ queryKey: ["playerStats"] });
       router.back();
     } catch (e) {
       setError("Network error. Try again.");

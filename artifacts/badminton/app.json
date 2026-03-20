@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Badminton Tracker",
-    "slug": "badminton",
+    "slug": "badminton-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -11,28 +11,36 @@
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#15803D"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.badmintontracker.app"
     },
-    "android": {},
     "web": {
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      [
-        "expo-router",
-        {
-          "origin": "https://replit.com/"
-        }
-      ],
+      "expo-router",
       "expo-font",
       "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "95508c6f-c106-4f93-8533-caa10bbafe7e"
+      }
+    },
+    "owner": "pshah14",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/95508c6f-c106-4f93-8533-caa10bbafe7e"
+    },
+    "android": {}
   }
 }

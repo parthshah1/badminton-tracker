@@ -1,6 +1,5 @@
 import React from "react";
 import { StyleSheet, Text, View, useColorScheme } from "react-native";
-import { Feather } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
 import { PlayerAvatar } from "./PlayerAvatar";
 
@@ -51,82 +50,71 @@ export function MatchCard({
   const team1Won = winnerTeam === 1;
   const team2Won = winnerTeam === 2;
 
-  const avatarSize = compact ? 26 : 32;
+  const avatarSize = compact ? 24 : 30;
 
   function TeamRow({
     teamPlayers,
     score,
     won,
-    isTop,
   }: {
     teamPlayers: MatchPlayer[];
     score: number;
     won: boolean;
-    isTop: boolean;
   }) {
     const names = teamPlayers.map(p => p.playerName.split(" ")[0]).join(" & ");
+    const winnerBg = isDark ? "rgba(34,197,94,0.08)" : "rgba(34,197,94,0.06)";
+
     return (
-      <View
-        style={[
-          styles.teamRow,
-          won && styles.teamRowWinner,
-          won && { backgroundColor: colors.tint + "12" },
-          isTop ? styles.teamRowTop : styles.teamRowBottom,
-        ]}
-      >
-        <View style={styles.teamLeft}>
-          <View style={styles.avatarStack}>
-            {teamPlayers.map((p, i) => (
-              <View
-                key={p.playerId}
+      <View style={[styles.teamRow, { backgroundColor: won ? winnerBg : "transparent" }]}>
+        <View style={[styles.accentBar, { backgroundColor: won ? colors.tint : "transparent" }]} />
+        <View style={styles.teamContent}>
+          <View style={styles.teamLeft}>
+            <View style={styles.avatarStack}>
+              {teamPlayers.map((p, i) => (
+                <View key={p.playerId} style={i > 0 ? styles.avatarOverlap : undefined}>
+                  <PlayerAvatar
+                    name={p.playerName}
+                    color={p.avatarColor}
+                    size={avatarSize}
+                    fontSize={compact ? 9 : 11}
+                  />
+                </View>
+              ))}
+            </View>
+            {!compact && (
+              <Text
                 style={[
-                  styles.avatarWrap,
-                  { marginLeft: i > 0 ? -10 : 0 },
-                  { borderColor: isDark ? colors.card : "#fff" },
+                  styles.teamName,
+                  { color: won ? colors.text : colors.textSecondary },
+                  won && styles.teamNameWinner,
                 ]}
+                numberOfLines={1}
               >
-                <PlayerAvatar
-                  name={p.playerName}
-                  color={p.avatarColor}
-                  size={avatarSize}
-                  fontSize={compact ? 10 : 12}
-                />
-              </View>
-            ))}
+                {names}
+              </Text>
+            )}
           </View>
-          {!compact && (
+          <View style={styles.teamRight}>
             <Text
               style={[
-                styles.teamName,
-                { color: won ? colors.text : colors.textSecondary },
-                won && styles.teamNameWinner,
+                styles.score,
+                { color: won ? colors.tint : colors.textMuted },
+                won && styles.scoreWinner,
               ]}
-              numberOfLines={1}
             >
-              {names}
+              {score}
             </Text>
-          )}
-        </View>
-
-        <View style={styles.teamRight}>
-          <Text
-            style={[
-              styles.score,
-              { color: won ? colors.tint : colors.textMuted },
-              won && styles.scoreWinner,
-            ]}
-          >
-            {score}
-          </Text>
-          {won ? (
-            <View style={[styles.winBadge, { backgroundColor: colors.tint }]}>
-              <Text style={styles.winBadgeText}>W</Text>
-            </View>
-          ) : (
-            <View style={[styles.lossBadge, { backgroundColor: colors.backgroundSecondary }]}>
-              <Text style={[styles.lossBadgeText, { color: colors.textMuted }]}>L</Text>
-            </View>
-          )}
+            <View
+              style={[
+                styles.resultIndicator,
+                {
+                  backgroundColor: won
+                    ? colors.tint
+                    : isDark ? "rgba(255,255,255,0.12)" : "#E2E8F0",
+                },
+              ]}
+            />
+          </View>
         </View>
       </View>
     );
@@ -138,101 +126,70 @@ export function MatchCard({
         styles.card,
         {
           backgroundColor: colors.card,
-          borderColor: colors.border,
-          shadowColor: isDark ? "#000" : "#94A3B8",
+          borderColor: isDark ? "rgba(255,255,255,0.06)" : colors.border,
+          shadowColor: isDark ? "#000" : "#64748B",
         },
       ]}
     >
-      <View style={styles.cardHeader}>
-        <View style={[styles.typePill, { backgroundColor: colors.backgroundSecondary }]}>
-          <Text style={[styles.typeText, { color: colors.textSecondary }]}>
+      <TeamRow teamPlayers={team1Players} score={team1Score} won={team1Won} />
+      <View style={[styles.rowDivider, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : colors.border }]} />
+      <TeamRow teamPlayers={team2Players} score={team2Score} won={team2Won} />
+
+      <View style={[styles.footer, { borderTopColor: isDark ? "rgba(255,255,255,0.05)" : colors.border }]}>
+        <View style={[styles.typePill, { backgroundColor: isDark ? "rgba(255,255,255,0.07)" : colors.backgroundSecondary }]}>
+          <Text style={[styles.typeText, { color: colors.textMuted }]}>
             {matchType === "singles" ? "SINGLES" : "DOUBLES"}
           </Text>
         </View>
+        {notes && !compact && (
+          <Text style={[styles.notesText, { color: colors.textMuted }]} numberOfLines={1}>
+            · {notes}
+          </Text>
+        )}
+        <View style={styles.footerSpacer} />
         <Text style={[styles.dateText, { color: colors.textMuted }]}>{formatDate(playedAt)}</Text>
       </View>
-
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-      <View style={styles.teamsContainer}>
-        <TeamRow teamPlayers={team1Players} score={team1Score} won={team1Won} isTop />
-        <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-        <TeamRow teamPlayers={team2Players} score={team2Score} won={team2Won} isTop={false} />
-      </View>
-
-      {notes && !compact && (
-        <View style={[styles.notesRow, { borderTopColor: colors.border }]}>
-          <Feather name="message-circle" size={12} color={colors.textMuted} />
-          <Text style={[styles.notesText, { color: colors.textMuted }]} numberOfLines={1}>
-            {notes}
-          </Text>
-        </View>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  typePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  typeText: {
-    fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.8,
-  },
-  dateText: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-  },
-  divider: {
-    height: 1,
-  },
-  teamsContainer: {},
   teamRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    alignItems: "stretch",
   },
-  teamRowWinner: {},
-  teamRowTop: { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
-  teamRowBottom: {},
-  rowDivider: {
-    height: 1,
-    marginHorizontal: 16,
+  accentBar: {
+    width: 3,
+  },
+  teamContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 13,
+    paddingLeft: 12,
+    paddingRight: 14,
+    gap: 10,
   },
   teamLeft: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    flex: 1,
   },
   avatarStack: {
     flexDirection: "row",
   },
-  avatarWrap: {
-    borderWidth: 2,
-    borderRadius: 20,
+  avatarOverlap: {
+    marginLeft: -8,
   },
   teamName: {
     fontSize: 14,
@@ -245,52 +202,56 @@ const styles = StyleSheet.create({
   teamRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
   score: {
-    fontSize: 26,
+    fontSize: 28,
     fontFamily: "Inter_700Bold",
-    lineHeight: 30,
-    minWidth: 32,
+    lineHeight: 32,
+    minWidth: 30,
     textAlign: "right",
+    letterSpacing: -1,
   },
   scoreWinner: {
-    fontSize: 30,
+    fontSize: 34,
   },
-  winBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
+  resultIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  winBadgeText: {
-    color: "#fff",
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
+  rowDivider: {
+    height: 1,
+    marginLeft: 3,
   },
-  lossBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  lossBadgeText: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-  },
-  notesRow: {
+  footer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderTopWidth: 1,
+    gap: 8,
+  },
+  typePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  typeText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.8,
   },
   notesText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "Inter_400Regular",
+    flexShrink: 1,
+  },
+  footerSpacer: {
     flex: 1,
+  },
+  dateText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
   },
 });
